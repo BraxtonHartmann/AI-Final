@@ -2,11 +2,19 @@ import { randomBytes, randomInt, randomUUID } from 'node:crypto'
 import type {
   PowerAction,
   PowerState,
+  PressureAction,
+  PressureState,
+  Request,
   Role,
   RoomView,
   Session,
 } from '../shared/protocol.ts'
 import { applyPowerAction, initialPower, powerView } from './power.ts'
+import {
+  applyPressureAction,
+  initialPressure,
+  pressureView,
+} from './pressure.ts'
 
 interface Player {
   id: string
@@ -24,6 +32,7 @@ interface Room {
   players: Player[]
   updatedAt: number
   power: PowerState
+  pressure: PressureState
   actions: Map<string, string>
 }
 
@@ -82,8 +91,13 @@ export class Lobby {
         ready: player.ready,
         connected: player.socketId !== null,
       })),
-      ...(room.phase !== 'lobby' && player?.role
+      ...((room.phase === 'power' || room.phase === 'power-complete') &&
+      player?.role
         ? { power: powerView(room.power, player.role) }
+        : {}),
+      ...((room.phase === 'pressure' || room.phase === 'pressure-complete') &&
+      player?.role
+        ? { pressure: pressureView(room.pressure, player.role) }
         : {}),
     }
   }
@@ -135,6 +149,7 @@ export class Lobby {
       players: [],
       updatedAt: this.now(),
       power: initialPower(),
+      pressure: initialPressure(),
       actions: new Map(),
     }
     this.rooms.set(code, room)
@@ -220,6 +235,7 @@ export class Lobby {
     }
     room.phase = 'power'
     room.power = initialPower()
+    room.pressure = initialPressure()
     room.actions.clear()
     this.changed(room)
     return this.view(room.code, socketId)
@@ -231,36 +247,98 @@ export class Lobby {
     actionId: string,
     expectedVersion: number,
   ) {
+    return this.applyPuzzle(socketId, {
+      type: 'power',
+      action,
+      actionId,
+      expectedVersion,
+    })
+  }
+
+  pressure(
+    socketId: string,
+    action: PressureAction,
+    actionId: string,
+    expectedVersion: number,
+  ) {
+    return this.applyPuzzle(socketId, {
+      type: 'pressure',
+      action,
+      actionId,
+      expectedVersion,
+    })
+  }
+
+  continue(socketId: string) {
+    const { room } = this.member(socketId)
+    if (room.phase === 'pressure' || room.phase === 'pressure-complete')
+      return this.view(room.code, socketId)
+    if (room.phase !== 'power-complete')
+      throw new Error('Restore power before continuing to the airlock.')
+    if (
+      room.players.length !== 2 ||
+      !room.players.every((entry) => entry.socketId)
+    )
+      throw new Error('Wait for your partner to reconnect.')
+    room.phase = 'pressure'
+    this.changed(room)
+    return this.view(room.code, socketId)
+  }
+
+  private applyPuzzle(
+    socketId: string,
+    request: Extract<Request, { type: 'power' | 'pressure' }>,
+  ) {
     const { room, player } = this.member(socketId)
-    if (player.role !== 'equipment')
-      throw new Error('Only the equipment operator can use the panel.')
+    const requiredRole = request.type === 'power' ? 'equipment' : 'control'
+    if (player.role !== requiredRole)
+      throw new Error(
+        request.type === 'power'
+          ? 'Only the equipment operator can use the breaker panel.'
+          : 'Only the control room analyst can operate the valves and pump.',
+      )
     if (room.phase === 'lobby')
       throw new Error('Start the session before using the panel.')
     if (
-      !room.players.every((entry) => entry.socketId) ||
-      room.players.length !== 2
-    ) {
+      room.players.length !== 2 ||
+      !room.players.every((entry) => entry.socketId)
+    )
       throw new Error(
         'Wait for your partner to reconnect before using the panel.',
       )
-    }
-    const key = `${player.id}:${actionId}`
-    const fingerprint = JSON.stringify({ action, expectedVersion })
+    const key = `${player.id}:${request.actionId}`
+    const fingerprint = JSON.stringify({
+      type: request.type,
+      action: request.action,
+      expectedVersion: request.expectedVersion,
+    })
     const previous = room.actions.get(key)
     if (previous) {
       if (previous !== fingerprint)
         throw new Error('Action ID was already used for a different action.')
       return this.view(room.code, socketId)
     }
-    if (expectedVersion !== room.power.version)
+    if (room.phase !== request.type) {
+      if (request.type === 'power' && room.power.status === 'restored')
+        throw new Error('Power is already restored.')
+      if (request.type === 'pressure' && room.pressure.status === 'drained')
+        throw new Error('The airlock is already drained.')
+      throw new Error('This puzzle is not active yet.')
+    }
+    if (request.expectedVersion !== room[request.type].version)
       throw new Error('Panel changed. Check the latest state and try again.')
     if (room.actions.size >= 1024)
       throw new Error(
-        'Panel action limit reached. Leave and start a new session.',
+        'Puzzle action limit reached. Leave and start a new session.',
       )
-    room.power = applyPowerAction(room.power, action)
+    if (request.type === 'power') {
+      room.power = applyPowerAction(room.power, request.action)
+      if (room.power.status === 'restored') room.phase = 'power-complete'
+    } else {
+      room.pressure = applyPressureAction(room.pressure, request.action)
+      if (room.pressure.status === 'drained') room.phase = 'pressure-complete'
+    }
     room.actions.set(key, fingerprint)
-    if (room.power.status === 'restored') room.phase = 'power-complete'
     this.changed(room)
     return this.view(room.code, socketId)
   }
@@ -273,6 +351,7 @@ export class Lobby {
     else {
       room.phase = 'lobby'
       room.power = initialPower()
+      room.pressure = initialPressure()
       room.actions.clear()
       room.players.forEach((entry) => {
         entry.ready = false
@@ -314,6 +393,7 @@ export class Lobby {
       else {
         room.phase = 'lobby'
         room.power = initialPower()
+        room.pressure = initialPressure()
         room.actions.clear()
         remaining.forEach((player) => {
           player.ready = false

@@ -1,5 +1,32 @@
 export type Role = 'equipment' | 'control'
 
+export const valves = [
+  { id: 'intake', label: 'Intake' },
+  { id: 'bypass', label: 'Bypass' },
+  { id: 'return', label: 'Return' },
+] as const
+export type ValveId = (typeof valves)[number]['id']
+export type PressureAction =
+  | { type: 'valve'; valve: ValveId; open: boolean }
+  | { type: 'pump' }
+  | { type: 'reset' }
+export interface PressureState {
+  status: 'active' | 'drained'
+  valves: Record<ValveId, boolean>
+  version: number
+}
+export type PressureView = {
+  status: PressureState['status']
+  version: number
+} & (
+  | { role: 'control'; valves: Record<ValveId, boolean> }
+  | {
+      role: 'equipment'
+      readings: [number, number]
+      safeRange: [number, number]
+    }
+)
+
 export const breakers = [
   { id: 'beacon', label: 'Beacon', symbol: '△' },
   { id: 'coil', label: 'Coil', symbol: 'ϟ' },
@@ -30,9 +57,10 @@ export interface PlayerView {
 export interface RoomView {
   code: string
   revision: number
-  phase: 'lobby' | 'power' | 'power-complete'
+  phase: 'lobby' | 'power' | 'power-complete' | 'pressure' | 'pressure-complete'
   players: PlayerView[]
   power?: PowerView
+  pressure?: PressureView
 }
 
 export type Request =
@@ -43,6 +71,13 @@ export type Request =
   | { type: 'ready'; ready: boolean }
   | { type: 'start' }
   | { type: 'leave' }
+  | { type: 'continue' }
+  | {
+      type: 'pressure'
+      action: PressureAction
+      actionId: string
+      expectedVersion: number
+    }
   | {
       type: 'power'
       action: PowerAction

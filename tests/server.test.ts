@@ -131,5 +131,86 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
   } as unknown as Request)
   assert.equal(malformed.ok, false)
   assert.ok(seenCodes.every((code) => code === isolated.room?.code))
+  const equipment = winner === a ? reconnected : winner
+  const control = loser === a ? reconnected : loser
+  await send(equipment, {
+    type: 'power',
+    action: { type: 'breaker', breaker: 'anchor' },
+    actionId: 'next-power',
+    expectedVersion: 1,
+  })
+  await send(equipment, {
+    type: 'power',
+    action: { type: 'breaker', breaker: 'beacon' },
+    actionId: 'last-power',
+    expectedVersion: 2,
+  })
+  const controls = await send(control, { type: 'continue' })
+  assert.ok(controls.ok && controls.room?.pressure?.role === 'control')
+  assert.equal('readings' in controls.room.pressure, false)
+  assert.equal('safeRange' in controls.room.pressure, false)
+  assert.equal(controls.room.power, undefined)
+  const gauges = await send(equipment, { type: 'continue' })
+  assert.ok(gauges.ok && gauges.room?.pressure?.role === 'equipment')
+  assert.equal('valves' in gauges.room.pressure, false)
+  const privateBroadcasts: string[] = []
+  control.on('room', (room) => {
+    if (room.pressure) privateBroadcasts.push(JSON.stringify(room.pressure))
+  })
+  const valveRequest: Request = {
+    type: 'pressure',
+    action: { type: 'valve', valve: 'intake', open: true },
+    actionId: 'valve-first',
+    expectedVersion: 0,
+  }
+  assert.equal((await send(equipment, valveRequest)).ok, false)
+  assert.equal((await send(c, valveRequest)).ok, false)
+  for (const invalid of [
+    {
+      ...valveRequest,
+      action: { type: 'valve', valve: 'unknown', open: true },
+    },
+    {
+      ...valveRequest,
+      action: { type: 'valve', valve: 'intake', open: 'true' },
+    },
+    { ...valveRequest, expectedVersion: '0' },
+    { ...valveRequest, actionId: {} },
+  ])
+    assert.equal((await send(control, invalid as unknown as Request)).ok, false)
+  assert.equal(
+    (
+      await send(control, {
+        type: 'pressure',
+        action: { type: 'pump' },
+        actionId: 'unsafe-pump',
+        expectedVersion: 0,
+      })
+    ).ok,
+    false,
+  )
+  const valveMoved = await send(control, valveRequest)
+  assert.ok(valveMoved.ok && valveMoved.room?.pressure?.version === 1)
+  const valveRepeated = await send(control, valveRequest)
+  assert.ok(valveRepeated.ok && valveRepeated.room?.pressure?.version === 1)
+  await send(control, {
+    type: 'pressure',
+    action: { type: 'valve', valve: 'bypass', open: true },
+    actionId: 'valve-second',
+    expectedVersion: 1,
+  })
+  const pumped = await send(control, {
+    type: 'pressure',
+    action: { type: 'pump' },
+    actionId: 'pump',
+    expectedVersion: 2,
+  })
+  assert.ok(pumped.ok && pumped.room?.phase === 'pressure-complete')
+  assert.ok(privateBroadcasts.length > 0)
+  assert.ok(
+    privateBroadcasts.every(
+      (value) => !value.includes('readings') && !value.includes('safeRange'),
+    ),
+  )
   assert.equal((await send(reconnected, { type: 'leave' })).ok, true)
 })

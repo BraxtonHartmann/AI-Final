@@ -34,7 +34,7 @@ export function PowerPanel({ power, disabled, partnerConnected, send }: Props) {
       <div className="puzzle-heading">
         <div>
           <p className="eyebrow">
-            Station power ·{' '}
+            System 1 of 4 ·{' '}
             {power.role === 'equipment'
               ? 'Equipment operator'
               : 'Control room analyst'}
@@ -165,9 +165,16 @@ export function PowerPanel({ power, disabled, partnerConnected, send }: Props) {
         <div className="power-success" role="status">
           <h4>First system restored.</h4>
           <p>
-            You brought the station back to life. The pressure puzzle is coming
-            next.
+            Power is back. Next, the control room operates the valves while the
+            equipment room reads the gauges.
           </p>
+          <button
+            className="primary"
+            disabled={disabled || !partnerConnected}
+            onClick={() => void send({ type: 'continue' })}
+          >
+            Continue to airlock
+          </button>
         </div>
       )}
     </div>

@@ -7,12 +7,13 @@ import type {
   ServerEvents,
 } from '../shared/protocol.ts'
 import { Lobby } from './lobby.ts'
-import { breakers } from '../shared/protocol.ts'
+import { breakers, valves } from '../shared/protocol.ts'
 
 function parseRequest(value: unknown): Request {
   if (!value || typeof value !== 'object') throw new Error('Invalid request.')
   const data = value as Record<string, unknown>
   switch (data.type) {
+    case 'pressure':
     case 'power': {
       if (
         typeof data.actionId !== 'string' ||
@@ -23,6 +24,30 @@ function parseRequest(value: unknown): Request {
         break
       if (!data.action || typeof data.action !== 'object') break
       const action = data.action as Record<string, unknown>
+      if (data.type === 'pressure') {
+        const metadata = {
+          actionId: data.actionId,
+          expectedVersion: data.expectedVersion as number,
+        }
+        if (action.type === 'reset' || action.type === 'pump')
+          return {
+            type: 'pressure',
+            action: { type: action.type },
+            ...metadata,
+          }
+        const valve = valves.find((entry) => entry.id === action.valve)
+        if (
+          action.type === 'valve' &&
+          valve &&
+          typeof action.open === 'boolean'
+        )
+          return {
+            type: 'pressure',
+            action: { type: 'valve', valve: valve.id, open: action.open },
+            ...metadata,
+          }
+        break
+      }
       if (action.type === 'reset')
         return {
           type: 'power',
@@ -40,6 +65,7 @@ function parseRequest(value: unknown): Request {
         }
       break
     }
+    case 'continue':
     case 'create':
     case 'start':
     case 'leave':
@@ -158,6 +184,20 @@ export function createLobbyServer() {
             break
           case 'start':
             reply = { ok: true, room: lobby.start(socket.id) }
+            break
+          case 'continue':
+            reply = { ok: true, room: lobby.continue(socket.id) }
+            break
+          case 'pressure':
+            reply = {
+              ok: true,
+              room: lobby.pressure(
+                socket.id,
+                request.action,
+                request.actionId,
+                request.expectedVersion,
+              ),
+            }
             break
           case 'power':
             reply = {

@@ -1,6 +1,6 @@
 # Repository context
 
-This is a CS 3810 capstone built with AI assistance. Read SPEC.md for scope and acceptance criteria, README.md for run instructions, and PROMPT_LOG.md for decisions and verification history. The current implementation covers the two-player lobby and the Restore Power puzzle.
+This is a CS 3810 capstone built with AI assistance. Read SPEC.md for scope and acceptance criteria, README.md for run instructions, and PROMPT_LOG.md for decisions and verification history. The current implementation covers the two-player lobby, Restore Power, and Drain the Airlock. The four-puzzle plan alternates primary controls between equipment (1 and 3) and control (2 and 4). The transmitter and hatch remain pending.
 
 ## Engineering workflow
 

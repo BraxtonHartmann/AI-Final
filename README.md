@@ -2,7 +2,7 @@
 
 A two-player browser escape room for the CS 3810 AI capstone. Players work from separate equipment and control-room screens to escape a submerged research station.
 
-The current build includes the real-time two-player lobby and the first playable puzzle, Restore Power. Players join a room, take different roles, and communicate to energize the station. Pressure and hatch puzzles are future milestones.
+The current build includes the real-time two-player lobby and two playable puzzles, Restore Power and Drain the Airlock. The four-puzzle plan alternates primary controls so each player operates two systems. The transmitter and hatch puzzles are future milestones. Difficulty will be increased after the initial flow is built.
 
 ## Run locally
 
@@ -35,9 +35,26 @@ A third player receives a room-full message. Invalid codes produce a readable er
 
 The analyst guides the operator through **Tide → Anchor → Beacon**, leaving **Coil** off. The order is fixed in this initial version. Each correct activation energizes a circuit. Activating the wrong breaker trips the panel and disables further breaker input until the operator chooses **Reset panel**. Reset clears all partial progress while keeping both players in the room.
 
-Only the equipment operator can activate or reset breakers. The analyst's sequence and damage warning are sent only to that role. Both views show the shared panel status. Controls pause while a partner is disconnected. Refreshing either browser restores the current puzzle progress. After the final correct breaker, both players see the power-restored outcome. Further puzzle actions are locked. The next puzzle is pending, and leaving returns the remaining player to the lobby for a new run.
+Only the equipment operator can activate or reset breakers. The analyst's sequence and damage warning are sent only to that role. Both views show the shared panel status. Controls pause while a partner is disconnected. Refreshing either browser restores the current puzzle progress. After the final correct breaker, both players see the power-restored outcome. Further puzzle actions are locked. Choose **Continue to airlock** to begin the pressure puzzle. Either player can continue once both are connected. Leaving returns the remaining player to the lobby for a new run.
 
 Puzzle requests include a unique action ID and the expected panel version. The server ignores exact repeats of accepted actions and rejects stale versions or reused IDs with different payloads. A room retains at most 1,024 accepted puzzle actions per run. Starting a new run clears that history.
+
+## Second puzzle walkthrough
+
+Responsibilities swap. The control room gets **Intake**, **Bypass**, and **Return** valve controls plus the drain pump. The equipment room gets two pressure gauges and their safe range. Each player supplies information the other needs.
+
+The gauges start at 80/20 kPa. Both must read 45–55 kPa before the pump can run. Opening Intake changes the pressures to 60/30. Opening Bypass as well produces 50/50. Leave Return closed, then choose **Start drain pump**. An unsafe pump attempt displays an interlock error and preserves the state. Valves can be opened or closed, and **Reset valves** restores the initial configuration while keeping power restored. A temporary disconnect pauses controls, and refreshing either browser restores the current puzzle view.
+
+Both players see a drainage-complete outcome. The transmitter puzzle is next to be built.
+
+## Four-puzzle plan
+
+| Puzzle | Equipment room | Control room |
+| --- | --- | --- |
+| Restore power | Operate breakers | Read wiring diagram |
+| Drain the airlock | Read pressure gauges | Operate valves and pump |
+| Send a distress signal — proposed | Operate transmitter | Read transmission chart |
+| Release the hatch — proposed | Read status and maintenance instructions | Operate keypad and release |
 
 ## Architecture
 
@@ -53,6 +70,7 @@ flowchart LR
 - `shared/protocol.ts` defines messages and public room snapshots.
 - `server/lobby.ts` owns room capacity, roles, readiness, expiration, session ownership, and authorized puzzle actions.
 - `server/power.ts` implements the deterministic breaker rules and builds role-specific puzzle views.
+- `server/pressure.ts` derives pressure from valve settings, enforces the pump interlock, and filters readings and controls by role.
 - `server/server.ts` validates network requests, applies a per-address request limit, and sends room snapshots only to their members.
 - `tests/` contains rule, transport, and browser tests.
 
@@ -71,7 +89,7 @@ npm audit
 
 The build checks frontend and backend TypeScript and produces frontend assets in dist. Production serving and deployment are pending. To preview the built frontend, start the backend with `CLIENT_ORIGIN=http://localhost:4173 npm run dev:server` in one terminal and run `npm run preview` in another. Stop the development backend first so port 3001 is available.
 
-Rule tests cover capacity, role ownership, ready/start gates, private recovery, readiness reset, expiration, and room isolation. Transport tests connect actual Socket.IO clients to verify competing role claims, unauthorized actions, malformed requests, and credential-based seat recovery. Puzzle tests cover the exact solution, wrong order, damaged and repeated breakers, reset, role privacy, stale requests, duplicate actions, partner disconnection, and refresh recovery. Playwright tests exercise the lobby and complete puzzle in separate Chromium contexts, reject a third player, synchronize trip/reset/completion, and check keyboard interaction and narrow-screen overflow.
+Rule tests cover capacity, role ownership, ready/start gates, private recovery, readiness reset, expiration, and room isolation. Transport tests connect actual Socket.IO clients to verify competing role claims, unauthorized actions, malformed requests, and credential-based seat recovery. Puzzle tests cover the exact solution, wrong order, damaged and repeated breakers, reset, role privacy, stale requests, duplicate actions, partner disconnection, and refresh recovery. Pressure tests also enumerate all eight valve configurations and verify reversal, safe pumping, transition gates, alternating role permissions, private views, resets, reconnects, and completion. Playwright tests exercise the lobby and both puzzles in separate Chromium contexts, reject a third player, synchronize trip/reset/completion, and check keyboard interaction and narrow-screen overflow.
 
 Automated checks are AI-run evidence. Project-owner code review, keyboard and screen-reader review, and manual Chrome/Firefox/Safari verification remain to be recorded. The complete accessibility and security reviews described in SPEC.md remain capstone milestones.
 

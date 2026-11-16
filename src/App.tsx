@@ -3,19 +3,20 @@ import { useLobby } from './useLobby'
 import type { Role } from '../shared/protocol'
 import './App.css'
 import { PowerPanel } from './PowerPanel'
+import { PressurePanel } from './PressurePanel'
 
 const roles: { id: Role; title: string; description: string }[] = [
   {
     id: 'equipment',
     title: 'Equipment operator',
     description:
-      'Work the breakers, valves, and hatch. Your partner has the information you need.',
+      'Operate breakers and the transmitter. Guide your partner using pressure gauges and hatch instructions.',
   },
   {
     id: 'control',
     title: 'Control room analyst',
     description:
-      'Read the diagrams and monitor the station. Guide your partner through each system.',
+      'Guide the power and transmitter puzzles. Operate pressure valves and the hatch controls.',
   },
 ]
 
@@ -252,6 +253,17 @@ function App() {
                     send={send}
                   />
                 )
+              )}
+              {room.pressure && (
+                <PressurePanel
+                  pressure={room.pressure}
+                  disabled={disabled}
+                  partnerConnected={
+                    room.players.length === 2 &&
+                    room.players.every((entry) => entry.connected)
+                  }
+                  send={send}
+                />
               )}
               <button
                 className="text-button"

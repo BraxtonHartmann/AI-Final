@@ -4,7 +4,7 @@
 
 Build a two-player browser escape room for the CS 3810 Applied Generative AI capstone, primarily under Track A, Web Design & Interactive Applications. Players receive different information and must communicate to escape a submerged research station.
 
-This is the initial specification, dated November 16, 2026. The browser platform, co-op concept, and React stack were discussed with the project owner. The underwater setting, puzzle rules, recovery policy, and scope below are working proposals to review during development. The current build includes the two-player lobby and Restore Power puzzle. The pressure and hatch puzzles remain pending.
+This is the initial specification, dated November 16, 2026. The browser platform, co-op concept, and React stack were discussed with the project owner. The underwater setting, puzzle rules, recovery policy, and scope below are working proposals to review during development. The current build includes the two-player lobby, Restore Power, and Drain the Airlock. The transmitter and hatch puzzles remain pending. The project owner expanded the plan to four puzzles so each player operates two systems. Difficulty increases are deferred until the complete initial flow is playable.
 
 ## Players and experience
 
@@ -14,7 +14,7 @@ The intended first playthrough lasts approximately 5–10 minutes. Players commu
 
 ## Initial scope
 
-- One station scenario with three sequential puzzles.
+- One station scenario with four sequential puzzles, alternating the primary operating player.
 - Two players per room, with one seat per role.
 - Room creation, joining, role selection, ready status, and starting a session.
 - Server-validated actions and role-specific state updates.
@@ -34,17 +34,38 @@ The initial implemented sequence is Tide → Anchor → Beacon. Coil is the dama
 
 This fixed sequence is an implementation choice for the first playable version and remains open to playtesting. Puzzle actions require the equipment role, an active session, and both players connected. They carry an action ID and expected puzzle version. Accepted IDs survive reconnects and resets within a run, exact repeats return the latest snapshot, stale versions are rejected, and reused IDs with different input are rejected. Leaving or seat expiration returns the remaining player to the lobby and clears puzzle progress. A temporary disconnect preserves progress. Tests cover the solution, incorrect actions, reset, role filtering, and replay protection.
 
+### Balanced player responsibilities
+
+| Puzzle | Primary controls | Partner information | Status |
+| --- | --- | --- | --- |
+| 1. Restore power | Equipment room | Control-room wiring diagram | Implemented |
+| 2. Drain the airlock | Control room | Equipment-room pressure gauges | Implemented |
+| 3. Send a distress signal | Equipment room | Control-room transmission chart | Proposed |
+| 4. Release the hatch | Control room | Equipment-room status and maintenance instructions | Proposed |
+
+Room identities stay the same throughout the game. Operating and guiding responsibilities alternate. Both players participate in every puzzle, and each has the primary controls in two. The signal puzzle and the revised hatch interaction below are working proposals selected to satisfy the requested balance.
+
 ### 2. Drain the airlock
 
-The equipment player operates labeled valves. The control player sees the two chamber pressure readings, safe ranges, and pump status. Valve changes affect both chambers according to deterministic rules. When both readings enter their safe ranges, the equipment player can activate the pump and complete the puzzle.
+After restoring power, either player can select Continue to airlock once both are connected. This transition is idempotent and cannot happen before power is restored. The control-room player operates Intake, Bypass, and Return valves and the drain pump. The equipment-room player receives both numerical gauges and the safe range. Valve settings are private to the control-room view, and readings and the safe range are private to the equipment-room view.
 
-Before implementation, define valve effects, initial pressure, limits, and safe ranges. Verify that a reachable solution exists, that an unsuccessful attempt can recover, and that the control player has enough information to guide their partner. Pressure changes occur when players act, avoiding a dependence on rapid input.
+The initial chamber pressures are 80 and 20 kPa. The safe range is inclusive from 45 to 55 kPa for both chambers. Opening Intake changes A by −20 and B by +10. Opening Bypass changes A by −10 and B by +20. Opening Return changes A by +15 and B by −15. Closing a valve reverses its contribution. Readings are derived from the initial values plus the open valves, so each of the eight configurations is bounded and reversible. There is no time-based pressure drift.
 
-### 3. Release the hatch
+The initial solution is Intake and Bypass open, Return closed, producing 50/50 kPa. Only the control-room player can start the pump, and unsafe readings cause an interlock error without changing the puzzle. Reset valves closes all valves and restores 80/20 without affecting completed power progress. A valid pump action completes the puzzle and locks further changes. The next puzzle remains pending.
 
-The equipment player reads the hatch's status symbols. The control player uses a manual to identify the corresponding release procedure. Players complete the procedure and arm their respective release controls. Once both sides are armed, either player can activate the final release and both see the escape outcome.
+The pressure puzzle uses the same role authorization, partner-connection gate, action-ID history, version checks, and filtered snapshots as power. Refresh preserves progress, temporary disconnect pauses controls, and leaving or seat expiration clears the run. Difficulty will be revisited after the initial four-puzzle flow is built.
 
-Before implementation, define the symbol mapping and procedure. Incorrect input must provide feedback. The server must prevent release before the preceding puzzles and both arming steps are complete.
+### 3. Send a distress signal
+
+Proposed next system. The equipment-room player operates a transmitter's frequency and antenna controls. The control-room player receives a transmission chart that identifies the correct settings for the station's rescue channel. Successful tuning and transmission send a distress signal and unlock hatch preparation.
+
+Define the exact settings, chart, incorrect-input feedback, and reset rules before implementation. Verify the equipment-room player has the primary controls and the control-room player's private chart is necessary to solve the puzzle.
+
+### 4. Release the hatch
+
+Proposed final system. The control-room player operates the hatch keypad and release controls. The equipment-room player reads local status symbols and maintenance instructions to guide the release procedure. After the procedure, both players arm their side and the control-room player releases the hatch. Both receive the escape outcome.
+
+Define the symbol mapping, keypad procedure, and arming rules before implementation. Incorrect input must produce feedback and allow recovery. The server must prevent release before power, drainage, transmission, and both arming steps are complete.
 
 ## User stories and acceptance criteria
 
@@ -54,12 +75,14 @@ Before implementation, define the symbol mapping and procedure. Incorrect input 
 | AC-02 | As a player, I can take a role and start with my partner. | Each role has one occupant. Concurrent requests for the same role yield one owner. Starting requires both roles to be occupied and ready. |
 | AC-03 | As a player, I receive my role's information. | The server sends only the clues and controls available to the player's current role and phase. Another room cannot receive this room's state. |
 | AC-04 | As a team, we can solve the power puzzle. | The documented solution advances the phase. Incorrect input trips the panel. Reset restores its initial puzzle state without losing the room. |
-| AC-05 | As a team, we can solve the pressure puzzle. | Valve actions follow the documented effects. Pump activation succeeds only when both chambers satisfy the safe ranges. |
-| AC-06 | As a team, we can escape. | The documented hatch procedure and both arming steps enable release. Both players receive the completion state. Early release requests are rejected. |
+| AC-05 | As a team, we can solve the pressure puzzle. | Valve actions follow the documented effects. The control-room player operates valves and pump while the equipment-room player reads private gauges. Pump activation succeeds only when both chambers satisfy the safe ranges. |
+| AC-06 | As a team, we can escape. | After the distress signal, the documented hatch procedure and both arming steps enable release from the control room. Both players receive the completion state. Early release requests are rejected. |
 | AC-07 | As a player, my browser stays synchronized. | Valid actions update both connected players' appropriate views without refreshing. Concurrent or repeated actions cannot bypass phase requirements or apply one accepted action twice. |
 | AC-08 | As a disconnected player, I can return. | Refresh or a temporary disconnect allows the same browser to reclaim its seat using a private session credential. A fresh state snapshot restores the correct view. The partner sees connection status. |
 | AC-09 | As a keyboard or screen-reader user, I can play. | All controls have accessible names, visible focus, and keyboard operation. Status changes are announced appropriately. Clues convey meaning through text or symbols in addition to color. |
 | AC-10 | As a reviewer, I can reproduce the demo. | The README documents installation, starting client and server, automated checks, and a two-browser walkthrough from room creation to escape. |
+| AC-11 | As a team, we can send a distress signal. | The equipment-room player operates the transmitter using the control-room player's private chart. Correct transmission unlocks hatch preparation. |
+| AC-12 | As either player, I get to operate two puzzles. | Equipment has primary controls in puzzles 1 and 3. Control has primary controls in puzzles 2 and 4. The partner supplies necessary information in every puzzle. |
 
 ## Architecture
 

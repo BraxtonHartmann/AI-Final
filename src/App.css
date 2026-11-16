@@ -615,3 +615,144 @@ footer {
     bottom: -22px;
   }
 }
+
+.valve-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin: 28px 0;
+}
+.valve-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 28px 15px;
+  background: #0a2028;
+  color: #e6f0ed;
+  border: 1px solid #65808a;
+  border-radius: 4px;
+}
+.valve-control:hover:not(:disabled) {
+  background: #193740;
+}
+.valve-control.open {
+  background: #1b3e40;
+  border-color: #b8e0c7;
+}
+.valve-control:disabled {
+  opacity: 0.7;
+}
+.valve-control > span:last-child {
+  font-size: 13px;
+}
+.valve-wheel {
+  height: 78px;
+  width: 78px;
+  border: 7px solid #829fa7;
+  border-radius: 50%;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.valve-wheel::before,
+.valve-wheel::after {
+  content: '';
+  position: absolute;
+  background: #829fa7;
+  width: 100%;
+  height: 6px;
+}
+.valve-wheel::after {
+  transform: rotate(90deg);
+}
+.valve-wheel > span {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #c2d7dc;
+  z-index: 1;
+}
+.open .valve-wheel {
+  transform: rotate(45deg);
+  border-color: #b8e0c7;
+}
+.open .valve-wheel::before,
+.open .valve-wheel::after {
+  background: #b8e0c7;
+}
+.pressure-actions {
+  display: flex;
+  gap: 16px;
+}
+.gauge-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 28px;
+}
+.pressure-gauge {
+  background: #0a2028;
+  border: 1px solid #65808a;
+  border-radius: 4px;
+  padding: 28px;
+}
+.pressure-gauge.safe {
+  border-color: #b8e0c7;
+}
+.pressure-gauge label {
+  color: #b4c8ca;
+  font-size: 16px;
+}
+.gauge-reading {
+  font-size: 58px;
+  margin: 20px 0;
+  line-height: 1;
+}
+.gauge-reading span {
+  font-size: 18px;
+  color: #b4c8ca;
+}
+.pressure-gauge meter {
+  width: 100%;
+  height: 30px;
+  accent-color: #b8e0c7;
+}
+.gauge-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #b4c8ca;
+}
+.gauge-condition {
+  font-size: 14px;
+  margin: 25px 0 0;
+  color: #ffe0b9;
+}
+.safe .gauge-condition {
+  color: #c4e7d2;
+}
+.power-success > button {
+  margin-top: 18px;
+}
+@media (max-width: 650px) {
+  .valve-grid,
+  .gauge-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .valve-control {
+    display: grid;
+    grid-template-columns: 65px 1fr;
+    text-align: left;
+    padding: 20px;
+  }
+  .valve-wheel {
+    grid-row: span 2;
+    height: 60px;
+    width: 60px;
+  }
+  .pressure-actions {
+    flex-direction: column;
+  }
+}

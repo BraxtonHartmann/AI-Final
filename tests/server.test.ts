@@ -212,5 +212,81 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
       (value) => !value.includes('readings') && !value.includes('safeRange'),
     ),
   )
+  const radio = await send(equipment, {
+    type: 'continue',
+    target: 'transmitter',
+  })
+  assert.ok(radio.ok && radio.room?.transmitter?.role === 'equipment')
+  assert.equal('chart' in radio.room.transmitter, false)
+  assert.equal(radio.room.pressure, undefined)
+  const chart = await send(control, { type: 'continue', target: 'transmitter' })
+  assert.ok(chart.ok && chart.room?.transmitter?.role === 'control')
+  assert.equal('settings' in chart.room.transmitter, false)
+  assert.equal(
+    (
+      await send(equipment, {
+        type: 'continue',
+        target: 'unknown',
+      } as unknown as Request)
+    ).ok,
+    false,
+  )
+  const tune: Request = {
+    type: 'transmitter',
+    action: {
+      type: 'tune',
+      settings: { frequencyKHz: 5600, bearing: 'west', code: '7314' },
+    },
+    actionId: 'radio-tune',
+    expectedVersion: 0,
+  }
+  assert.equal((await send(control, tune)).ok, false)
+  assert.equal((await send(c, tune)).ok, false)
+  for (const settings of [
+    { frequencyKHz: '5600', bearing: 'west', code: '7314' },
+    { frequencyKHz: 5600, bearing: 'up', code: '7314' },
+    { frequencyKHz: 5600, bearing: 'west', code: 7314 },
+    { frequencyKHz: 5600, bearing: 'west', code: '73145' },
+    { frequencyKHz: 5600, bearing: 'west', code: '73x4' },
+    null,
+  ])
+    assert.equal(
+      (
+        await send(equipment, {
+          ...tune,
+          action: { type: 'tune', settings },
+        } as unknown as Request)
+      ).ok,
+      false,
+    )
+  const radioBroadcasts: string[] = []
+  const chartBroadcasts: string[] = []
+  equipment.on('room', (room) => {
+    if (room.transmitter) radioBroadcasts.push(JSON.stringify(room.transmitter))
+  })
+  control.on('room', (room) => {
+    if (room.transmitter) chartBroadcasts.push(JSON.stringify(room.transmitter))
+  })
+  const tuned = await send(equipment, tune)
+  assert.ok(tuned.ok && tuned.room?.transmitter?.version === 1)
+  const repeatedTune = await send(equipment, tune)
+  assert.ok(repeatedTune.ok && repeatedTune.room?.transmitter?.version === 1)
+  const sent = await send(equipment, {
+    type: 'transmitter',
+    action: { type: 'transmit' },
+    actionId: 'radio-send',
+    expectedVersion: 1,
+  })
+  assert.ok(sent.ok && sent.room?.phase === 'transmitter-complete')
+  await send(control, { type: 'continue', target: 'transmitter' })
+  assert.ok(radioBroadcasts.length > 0 && chartBroadcasts.length > 0)
+  assert.ok(
+    radioBroadcasts.every(
+      (value) => !value.includes('chart') && !value.includes('targetService'),
+    ),
+  )
+  assert.ok(
+    chartBroadcasts.every((value) => !Object.hasOwn(JSON.parse(value), 'settings')),
+  )
   assert.equal((await send(reconnected, { type: 'leave' })).ok, true)
 })

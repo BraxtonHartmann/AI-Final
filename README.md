@@ -2,7 +2,7 @@
 
 A two-player browser escape room for the CS 3810 AI capstone. Players work from separate equipment and control-room screens to escape a submerged research station.
 
-The current build includes the real-time two-player lobby and two playable puzzles, Restore Power and Drain the Airlock. The four-puzzle plan alternates primary controls so each player operates two systems. The transmitter and hatch puzzles are future milestones. Difficulty will be increased after the initial flow is built.
+The current build includes the real-time two-player lobby and three playable puzzles, Restore Power, Drain the Airlock, and Send a Distress Signal. The four-puzzle plan alternates primary controls so each player operates two systems. The hatch puzzle is the final gameplay milestone. Difficulty will be increased after the initial flow is built.
 
 ## Run locally
 
@@ -45,7 +45,15 @@ Responsibilities swap. The control room gets **Intake**, **Bypass**, and **Retur
 
 The gauges start at 80/20 kPa. Both must read 45–55 kPa before the pump can run. Opening Intake changes the pressures to 60/30. Opening Bypass as well produces 50/50. Leave Return closed, then choose **Start drain pump**. An unsafe pump attempt displays an interlock error and preserves the state. Valves can be opened or closed, and **Reset valves** restores the initial configuration while keeping power restored. A temporary disconnect pauses controls, and refreshing either browser restores the current puzzle view.
 
-Both players see a drainage-complete outcome. The transmitter puzzle is next to be built.
+Both players see a drainage-complete outcome. Choose **Continue to transmitter** to begin the third puzzle.
+
+## Third puzzle walkthrough
+
+Equipment operates the radio while Control reads a private transmission chart. Control identifies the **Rescue** service and reads out **5.6 MHz**, **west**, and signal code **7314**. Equipment selects those values, chooses **Apply settings**, then **Transmit applied settings**.
+
+The radio starts at 4.2 MHz/north with an unset code. An incorrect transmission gives both players a **No acknowledgment** message and allows another attempt. **Reset radio** restores the initial settings while retaining completed power and drainage. The radio transmits the last applied configuration. Unsaved form edits are drafts, and only applied settings return after a refresh. Signal codes contain exactly four digits.
+
+A correct transmission gives both players a rescue acknowledgment and locks the radio. The final hatch puzzle is next to be built. The frequencies and codes are fictional game settings for this first version.
 
 ## Four-puzzle plan
 
@@ -53,7 +61,7 @@ Both players see a drainage-complete outcome. The transmitter puzzle is next to 
 | --- | --- | --- |
 | Restore power | Operate breakers | Read wiring diagram |
 | Drain the airlock | Read pressure gauges | Operate valves and pump |
-| Send a distress signal — proposed | Operate transmitter | Read transmission chart |
+| Send a distress signal | Operate transmitter | Read transmission chart |
 | Release the hatch — proposed | Read status and maintenance instructions | Operate keypad and release |
 
 ## Architecture
@@ -71,6 +79,7 @@ flowchart LR
 - `server/lobby.ts` owns room capacity, roles, readiness, expiration, session ownership, and authorized puzzle actions.
 - `server/power.ts` implements the deterministic breaker rules and builds role-specific puzzle views.
 - `server/pressure.ts` derives pressure from valve settings, enforces the pump interlock, and filters readings and controls by role.
+- `server/transmitter.ts` checks radio settings, handles unanswered/acknowledged transmissions, and keeps the chart separate from the applied settings.
 - `server/server.ts` validates network requests, applies a per-address request limit, and sends room snapshots only to their members.
 - `tests/` contains rule, transport, and browser tests.
 
@@ -89,7 +98,7 @@ npm audit
 
 The build checks frontend and backend TypeScript and produces frontend assets in dist. Production serving and deployment are pending. To preview the built frontend, start the backend with `CLIENT_ORIGIN=http://localhost:4173 npm run dev:server` in one terminal and run `npm run preview` in another. Stop the development backend first so port 3001 is available.
 
-Rule tests cover capacity, role ownership, ready/start gates, private recovery, readiness reset, expiration, and room isolation. Transport tests connect actual Socket.IO clients to verify competing role claims, unauthorized actions, malformed requests, and credential-based seat recovery. Puzzle tests cover the exact solution, wrong order, damaged and repeated breakers, reset, role privacy, stale requests, duplicate actions, partner disconnection, and refresh recovery. Pressure tests also enumerate all eight valve configurations and verify reversal, safe pumping, transition gates, alternating role permissions, private views, resets, reconnects, and completion. Playwright tests exercise the lobby and both puzzles in separate Chromium contexts, reject a third player, synchronize trip/reset/completion, and check keyboard interaction and narrow-screen overflow.
+Rule tests cover capacity, role ownership, ready/start gates, private recovery, readiness reset, expiration, and room isolation. Transport tests connect actual Socket.IO clients to verify competing role claims, unauthorized actions, malformed requests, and credential-based seat recovery. Puzzle tests cover the exact solution, wrong order, damaged and repeated breakers, reset, role privacy, stale requests, duplicate actions, partner disconnection, and refresh recovery. Pressure tests also enumerate all eight valve configurations and verify reversal, safe pumping, transition gates, alternating role permissions, private views, resets, reconnects, and completion. Transmitter tests verify exact rescue settings, unanswered attempts, resets, private chart delivery, stage gates, malformed settings, duplicate IDs, stale versions, and reconnect recovery. Playwright tests exercise the lobby and all three puzzles in separate Chromium contexts, reject a third player, synchronize outcomes, and check keyboard interaction and narrow-screen overflow.
 
 Automated checks are AI-run evidence. Project-owner code review, keyboard and screen-reader review, and manual Chrome/Firefox/Safari verification remain to be recorded. The complete accessibility and security reviews described in SPEC.md remain capstone milestones.
 

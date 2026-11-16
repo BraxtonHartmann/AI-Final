@@ -1,5 +1,33 @@
 export type Role = 'equipment' | 'control'
 
+export const radioFrequencies = [4200, 5600, 6800] as const
+export const antennaBearings = ['north', 'east', 'south', 'west'] as const
+export interface RadioSettings {
+  frequencyKHz: (typeof radioFrequencies)[number]
+  bearing: (typeof antennaBearings)[number]
+  code: string
+}
+export type TransmitterAction =
+  | { type: 'tune'; settings: RadioSettings }
+  | { type: 'transmit' }
+  | { type: 'reset' }
+export interface TransmitterState {
+  status: 'active' | 'unanswered' | 'sent'
+  settings: RadioSettings
+  version: number
+}
+export interface TransmissionRow {
+  service: string
+  settings: RadioSettings
+}
+export type TransmitterView = {
+  status: TransmitterState['status']
+  version: number
+} & (
+  | { role: 'equipment'; settings: RadioSettings }
+  | { role: 'control'; chart: TransmissionRow[]; targetService: string }
+)
+
 export const valves = [
   { id: 'intake', label: 'Intake' },
   { id: 'bypass', label: 'Bypass' },
@@ -57,10 +85,18 @@ export interface PlayerView {
 export interface RoomView {
   code: string
   revision: number
-  phase: 'lobby' | 'power' | 'power-complete' | 'pressure' | 'pressure-complete'
+  phase:
+    | 'lobby'
+    | 'power'
+    | 'power-complete'
+    | 'pressure'
+    | 'pressure-complete'
+    | 'transmitter'
+    | 'transmitter-complete'
   players: PlayerView[]
   power?: PowerView
   pressure?: PressureView
+  transmitter?: TransmitterView
 }
 
 export type Request =
@@ -71,7 +107,13 @@ export type Request =
   | { type: 'ready'; ready: boolean }
   | { type: 'start' }
   | { type: 'leave' }
-  | { type: 'continue' }
+  | { type: 'continue'; target?: 'pressure' | 'transmitter' }
+  | {
+      type: 'transmitter'
+      action: TransmitterAction
+      actionId: string
+      expectedVersion: number
+    }
   | {
       type: 'pressure'
       action: PressureAction

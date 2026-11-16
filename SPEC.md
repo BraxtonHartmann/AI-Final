@@ -4,7 +4,7 @@
 
 Build a two-player browser escape room for the CS 3810 Applied Generative AI capstone, primarily under Track A, Web Design & Interactive Applications. Players receive different information and must communicate to escape a submerged research station.
 
-This is the initial specification, dated November 16, 2026. The browser platform, co-op concept, and React stack were discussed with the project owner. The underwater setting, puzzle rules, recovery policy, and scope below are working proposals to review during development. The current build includes the two-player lobby, Restore Power, and Drain the Airlock. The transmitter and hatch puzzles remain pending. The project owner expanded the plan to four puzzles so each player operates two systems. Difficulty increases are deferred until the complete initial flow is playable.
+This is the initial specification, dated November 16, 2026. The browser platform, co-op concept, and React stack were discussed with the project owner. The underwater setting, puzzle rules, recovery policy, and scope below are working proposals to review during development. The current build includes the two-player lobby, Restore Power, Drain the Airlock, and Send a Distress Signal. The final hatch puzzle remains pending. The project owner expanded the plan to four puzzles so each player operates two systems. Difficulty increases are deferred until the complete initial flow is playable.
 
 ## Players and experience
 
@@ -40,10 +40,10 @@ This fixed sequence is an implementation choice for the first playable version a
 | --- | --- | --- | --- |
 | 1. Restore power | Equipment room | Control-room wiring diagram | Implemented |
 | 2. Drain the airlock | Control room | Equipment-room pressure gauges | Implemented |
-| 3. Send a distress signal | Equipment room | Control-room transmission chart | Proposed |
+| 3. Send a distress signal | Equipment room | Control-room transmission chart | Implemented |
 | 4. Release the hatch | Control room | Equipment-room status and maintenance instructions | Proposed |
 
-Room identities stay the same throughout the game. Operating and guiding responsibilities alternate. Both players participate in every puzzle, and each has the primary controls in two. The signal puzzle and the revised hatch interaction below are working proposals selected to satisfy the requested balance.
+Room identities stay the same throughout the game. Operating and guiding responsibilities alternate. Both players participate in every puzzle, and each has the primary controls in two. The transmitter follows the alternating split. The revised hatch interaction below remains a working proposal selected to satisfy the requested balance.
 
 ### 2. Drain the airlock
 
@@ -51,15 +51,21 @@ After restoring power, either player can select Continue to airlock once both ar
 
 The initial chamber pressures are 80 and 20 kPa. The safe range is inclusive from 45 to 55 kPa for both chambers. Opening Intake changes A by −20 and B by +10. Opening Bypass changes A by −10 and B by +20. Opening Return changes A by +15 and B by −15. Closing a valve reverses its contribution. Readings are derived from the initial values plus the open valves, so each of the eight configurations is bounded and reversible. There is no time-based pressure drift.
 
-The initial solution is Intake and Bypass open, Return closed, producing 50/50 kPa. Only the control-room player can start the pump, and unsafe readings cause an interlock error without changing the puzzle. Reset valves closes all valves and restores 80/20 without affecting completed power progress. A valid pump action completes the puzzle and locks further changes. The next puzzle remains pending.
+The initial solution is Intake and Bypass open, Return closed, producing 50/50 kPa. Only the control-room player can start the pump, and unsafe readings cause an interlock error without changing the puzzle. Reset valves closes all valves and restores 80/20 without affecting completed power progress. A valid pump action completes the puzzle and locks further changes. Either connected player can then choose Continue to transmitter.
 
 The pressure puzzle uses the same role authorization, partner-connection gate, action-ID history, version checks, and filtered snapshots as power. Refresh preserves progress, temporary disconnect pauses controls, and leaving or seat expiration clears the run. Difficulty will be revisited after the initial four-puzzle flow is built.
 
 ### 3. Send a distress signal
 
-Proposed next system. The equipment-room player operates a transmitter's frequency and antenna controls. The control-room player receives a transmission chart that identifies the correct settings for the station's rescue channel. Successful tuning and transmission send a distress signal and unlock hatch preparation.
+After draining the airlock, either player can continue to the transmitter. Equipment operates the radio. Control receives a private chart of Maintenance, Rescue, and Supply services with a frequency, antenna direction, and four-digit signal code for each. Control is instructed to use Rescue for evacuation. Equipment receives only its own applied settings and the shared transmission outcome.
 
-Define the exact settings, chart, incorrect-input feedback, and reset rules before implementation. Verify the equipment-room player has the primary controls and the control-room player's private chart is necessary to solve the puzzle.
+The initial Rescue settings are 5.6 MHz, west, and code 7314. Other chart entries are Maintenance at 4.2 MHz/north/1042 and Supply at 6.8 MHz/east/2691. These are fictional game settings selected for the first version. Frequency choices are 4.2, 5.6, and 6.8 MHz, and antenna directions are north, east, south, and west. Codes must contain exactly four digits. Initial settings are 4.2 MHz, north, and an unset code.
+
+Equipment edits a form and selects Apply settings to save all three values together. Transmit applied settings sends the last accepted configuration. An incorrect transmission produces a shared No acknowledgment outcome and permits retuning or resetting. A correct transmission receives a shared rescue acknowledgment and locks the controls. Reset radio returns to the initial configuration without losing power or drainage progress. Applied settings survive refresh. Form edits that have not been applied are local drafts.
+
+The puzzle uses the existing role, connection, version, and action-ID checks. Only Equipment can tune, reset, or transmit. Neither role receives the other role's private view. Stage transitions now name their destination. A repeated or delayed transition to an earlier stage returns the current snapshot, and a premature transition is rejected. Requests from older clients without a destination retain the original transition to pressure, preventing a late request from advancing a newer puzzle.
+
+Completion authorizes the future hatch stage. The final hatch interaction remains pending. Difficulty increases remain deferred.
 
 ### 4. Release the hatch
 

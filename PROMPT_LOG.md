@@ -119,7 +119,24 @@ For future entries, include date, exact prompt or transcript reference, agent/to
 - Human verification — Pending project-owner playtesting and code review of pressure. Firefox, Safari, screen-reader review, and the full accessibility/security audits remain pending. The user's positive feedback on power was recorded as feedback, without assuming a completed code audit.
 - Limitations — Only the first two puzzles are implemented. Transmitter and hatch remain planned. Rooms remain in memory, and restarting the backend ends active sessions.
 - Workspace observation — Near wrap-up, three additional untracked files appeared in src: App 2.tsx, App 2.css, and index 2.css. They were not created by the assistant commands in this task and were not edited or staged. Build and lint were rechecked with these files present. Their origin has not been established.
-- Commit — Pressure and updated planning/log records saved locally, pending review and commit. Power push is complete.
+- Commit — 8832333, feat: add cooperative pressure puzzle and four-system plan [AI-assisted]. Committed and pushed on the next user request.
+
+## 009 — Publish pressure and build the transmitter
+
+- Date — November 16, 2026.
+- User prompt — “That looks good, lets commit and push the pressure puzzle and start building the transmitter puzzle next.”
+- Agent/tools — Codex, terminal Git/npm/Node.js tools, TypeScript, Socket.IO, Playwright Chromium, cached Prettier, and local screenshot inspection. Exact model identifier was not recorded. No subagents were used.
+- Context — Read AGENTS.md, SPEC.md, README.md, the existing protocol, session/puzzle action logic, pressure and power UIs, and test coverage. Maintained the requested four-puzzle operating split and deferred difficulty increases.
+- Publication — Committed the pressure puzzle and its records as 8832333 with [AI-assisted] and pushed to origin/main before starting transmitter work. The three previously observed duplicate-named source files were omitted from the commit as unrelated untracked files.
+- Initial transmitter design — Equipment operates the radio. Control receives a private chart for Maintenance, Rescue, and Supply channels. The initial rescue solution is 5.6 MHz, west, and four-digit code 7314. These fictional game settings are assistant-selected mechanics for the initial version. Equipment applies a complete configuration, then transmits the saved values. An incorrect configuration produces shared No acknowledgment feedback and allows retuning or reset. Correct settings produce a shared acknowledgment and lock the controls. Reset preserves completed power and drainage. Applied settings survive refresh, while unsaved form edits remain local drafts.
+- Test-driven evidence — Added transmitter solution, incorrect settings, reset, terminal-state, and privacy tests before creating server/transmitter.ts. The initial run failed with ERR_MODULE_NOT_FOUND. The rules passed after implementation.
+- Changes — Added deterministic transmitter rules, role-filtered radio/chart views, runtime settings validation, UI controls and chart cards, reset, unanswered feedback, completion, and a transition from pressure. Reused shared puzzle authorization, partner connection checks, version checks, action deduplication, and session recovery. Added targeted progression to preserve the current stage when an earlier transition is repeated or delayed. Legacy continue requests retain their original pressure destination.
+- Detected issue and remediation — Backend type checking found TS2322 in the new tests because numeric frequency literals widened to number, while RadioSettings accepts a defined set of frequency values. Marked the test values as literal constants. The subsequent build passed. This was a test typing issue.
+- Verification setup — Limited Playwright to two workers to bound simultaneous browser load as coverage grew. The three-puzzle browser test has a sixty-second limit to accommodate its longer user flow. Its successful run completed in approximately sixteen seconds.
+- AI-run verification — Nineteen rule/transport tests and five Chromium browser tests passed. Coverage includes exact rescue tuning, unanswered attempts, reset, role authorization, private broadcasts and acknowledgments, malformed settings and codes, duplicate IDs, stale versions, targeted stage gates, partner disconnection, saved settings recovery after refresh, keyboard form submission, synchronized acknowledgment, and mobile overflow. Build, lint, and Git whitespace checks passed. Desktop and mobile screenshots of the radio and private chart were captured in temporary files outside the repository and visually inspected.
+- Human verification — Pending project-owner transmitter playtesting and code review. Firefox, Safari, screen-reader review, and the full accessibility/security audits remain pending.
+- Limitations — Three puzzles are implemented. The final hatch puzzle remains pending. Rooms remain in memory, and backend restarts end active sessions.
+- Commit — Transmitter and updated records saved locally, pending review and commit. Pressure push is complete.
 
 ## Future entry template
 

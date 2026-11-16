@@ -171,7 +171,7 @@ export function PowerPanel({ power, disabled, partnerConnected, send }: Props) {
           <button
             className="primary"
             disabled={disabled || !partnerConnected}
-            onClick={() => void send({ type: 'continue' })}
+            onClick={() => void send({ type: 'continue', target: 'pressure' })}
           >
             Continue to airlock
           </button>

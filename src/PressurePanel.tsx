@@ -185,9 +185,18 @@ export function PressurePanel({
         <div className="power-success" role="status">
           <h4>Second system restored.</h4>
           <p>
-            The airlock is ready. The transmitter and hatch puzzles are coming
-            next.
+            The airlock is ready. Equipment operates the radio next, while
+            Control reads the transmission chart.
           </p>
+          <button
+            className="primary"
+            disabled={disabled || !partnerConnected}
+            onClick={() =>
+              void send({ type: 'continue', target: 'transmitter' })
+            }
+          >
+            Continue to transmitter
+          </button>
         </div>
       )}
     </div>

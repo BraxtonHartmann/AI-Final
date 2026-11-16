@@ -7,12 +7,18 @@ import type {
   ServerEvents,
 } from '../shared/protocol.ts'
 import { Lobby } from './lobby.ts'
-import { breakers, valves } from '../shared/protocol.ts'
+import {
+  breakers,
+  valves,
+  radioFrequencies,
+  antennaBearings,
+} from '../shared/protocol.ts'
 
 function parseRequest(value: unknown): Request {
   if (!value || typeof value !== 'object') throw new Error('Invalid request.')
   const data = value as Record<string, unknown>
   switch (data.type) {
+    case 'transmitter':
     case 'pressure':
     case 'power': {
       if (
@@ -24,6 +30,46 @@ function parseRequest(value: unknown): Request {
         break
       if (!data.action || typeof data.action !== 'object') break
       const action = data.action as Record<string, unknown>
+      if (data.type === 'transmitter') {
+        const metadata = {
+          actionId: data.actionId,
+          expectedVersion: data.expectedVersion as number,
+        }
+        if (action.type === 'reset' || action.type === 'transmit')
+          return {
+            type: 'transmitter',
+            action: { type: action.type },
+            ...metadata,
+          }
+        if (
+          action.type !== 'tune' ||
+          !action.settings ||
+          typeof action.settings !== 'object'
+        )
+          break
+        const settings = action.settings as Record<string, unknown>
+        const frequencyKHz = radioFrequencies.find(
+          (value) => value === settings.frequencyKHz,
+        )
+        const bearing = antennaBearings.find(
+          (value) => value === settings.bearing,
+        )
+        if (
+          frequencyKHz &&
+          bearing &&
+          typeof settings.code === 'string' &&
+          /^[0-9]{4}$/.test(settings.code)
+        )
+          return {
+            type: 'transmitter',
+            action: {
+              type: 'tune',
+              settings: { frequencyKHz, bearing, code: settings.code },
+            },
+            ...metadata,
+          }
+        break
+      }
       if (data.type === 'pressure') {
         const metadata = {
           actionId: data.actionId,
@@ -66,6 +112,13 @@ function parseRequest(value: unknown): Request {
       break
     }
     case 'continue':
+      if (
+        data.target === undefined ||
+        data.target === 'pressure' ||
+        data.target === 'transmitter'
+      )
+        return { type: 'continue', target: data.target }
+      break
     case 'create':
     case 'start':
     case 'leave':
@@ -186,7 +239,21 @@ export function createLobbyServer() {
             reply = { ok: true, room: lobby.start(socket.id) }
             break
           case 'continue':
-            reply = { ok: true, room: lobby.continue(socket.id) }
+            reply = {
+              ok: true,
+              room: lobby.continue(socket.id, request.target),
+            }
+            break
+          case 'transmitter':
+            reply = {
+              ok: true,
+              room: lobby.transmitter(
+                socket.id,
+                request.action,
+                request.actionId,
+                request.expectedVersion,
+              ),
+            }
             break
           case 'pressure':
             reply = {

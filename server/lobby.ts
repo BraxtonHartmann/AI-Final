@@ -5,6 +5,8 @@ import type {
   PressureAction,
   PressureState,
   Request,
+  TransmitterAction,
+  TransmitterState,
   Role,
   RoomView,
   Session,
@@ -15,6 +17,12 @@ import {
   initialPressure,
   pressureView,
 } from './pressure.ts'
+
+import {
+  applyTransmitterAction,
+  initialTransmitter,
+  transmitterView,
+} from './transmitter.ts'
 
 interface Player {
   id: string
@@ -33,6 +41,7 @@ interface Room {
   updatedAt: number
   power: PowerState
   pressure: PressureState
+  transmitter: TransmitterState
   actions: Map<string, string>
 }
 
@@ -99,6 +108,11 @@ export class Lobby {
       player?.role
         ? { pressure: pressureView(room.pressure, player.role) }
         : {}),
+      ...((room.phase === 'transmitter' ||
+        room.phase === 'transmitter-complete') &&
+      player?.role
+        ? { transmitter: transmitterView(room.transmitter, player.role) }
+        : {}),
     }
   }
 
@@ -150,6 +164,7 @@ export class Lobby {
       updatedAt: this.now(),
       power: initialPower(),
       pressure: initialPressure(),
+      transmitter: initialTransmitter(),
       actions: new Map(),
     }
     this.rooms.set(code, room)
@@ -236,6 +251,7 @@ export class Lobby {
     room.phase = 'power'
     room.power = initialPower()
     room.pressure = initialPressure()
+    room.transmitter = initialTransmitter()
     room.actions.clear()
     this.changed(room)
     return this.view(room.code, socketId)
@@ -269,33 +285,69 @@ export class Lobby {
     })
   }
 
-  continue(socketId: string) {
+  transmitter(
+    socketId: string,
+    action: TransmitterAction,
+    actionId: string,
+    expectedVersion: number,
+  ) {
+    return this.applyPuzzle(socketId, {
+      type: 'transmitter',
+      action,
+      actionId,
+      expectedVersion,
+    })
+  }
+
+  continue(socketId: string, target: 'pressure' | 'transmitter' = 'pressure') {
     const { room } = this.member(socketId)
-    if (room.phase === 'pressure' || room.phase === 'pressure-complete')
+    // Old clients without a target retain their original power-to-pressure behavior.
+    if (
+      target === 'pressure' &&
+      [
+        'pressure',
+        'pressure-complete',
+        'transmitter',
+        'transmitter-complete',
+      ].includes(room.phase)
+    )
       return this.view(room.code, socketId)
-    if (room.phase !== 'power-complete')
-      throw new Error('Restore power before continuing to the airlock.')
+    if (
+      target === 'transmitter' &&
+      (room.phase === 'transmitter' || room.phase === 'transmitter-complete')
+    )
+      return this.view(room.code, socketId)
+    const requiredPhase =
+      target === 'pressure' ? 'power-complete' : 'pressure-complete'
+    if (room.phase !== requiredPhase)
+      throw new Error(
+        target === 'pressure'
+          ? 'Restore power before continuing to the airlock.'
+          : 'Drain the airlock before continuing to the transmitter.',
+      )
     if (
       room.players.length !== 2 ||
       !room.players.every((entry) => entry.socketId)
     )
       throw new Error('Wait for your partner to reconnect.')
-    room.phase = 'pressure'
+    room.phase = target
     this.changed(room)
     return this.view(room.code, socketId)
   }
 
   private applyPuzzle(
     socketId: string,
-    request: Extract<Request, { type: 'power' | 'pressure' }>,
+    request: Extract<Request, { type: 'power' | 'pressure' | 'transmitter' }>,
   ) {
     const { room, player } = this.member(socketId)
-    const requiredRole = request.type === 'power' ? 'equipment' : 'control'
+    const requiredRole = request.type === 'pressure' ? 'control' : 'equipment'
     if (player.role !== requiredRole)
       throw new Error(
         request.type === 'power'
           ? 'Only the equipment operator can use the breaker panel.'
-          : 'Only the control room analyst can operate the valves and pump.',
+          : request.type === 'pressure'
+            ? 'Only the control room analyst can operate the valves and pump.'
+            : 'Only the equipment operator can tune and transmit.',
       )
     if (room.phase === 'lobby')
       throw new Error('Start the session before using the panel.')
@@ -323,6 +375,8 @@ export class Lobby {
         throw new Error('Power is already restored.')
       if (request.type === 'pressure' && room.pressure.status === 'drained')
         throw new Error('The airlock is already drained.')
+      if (request.type === 'transmitter' && room.transmitter.status === 'sent')
+        throw new Error('Rescue has already acknowledged the signal.')
       throw new Error('This puzzle is not active yet.')
     }
     if (request.expectedVersion !== room[request.type].version)
@@ -334,9 +388,16 @@ export class Lobby {
     if (request.type === 'power') {
       room.power = applyPowerAction(room.power, request.action)
       if (room.power.status === 'restored') room.phase = 'power-complete'
-    } else {
+    } else if (request.type === 'pressure') {
       room.pressure = applyPressureAction(room.pressure, request.action)
       if (room.pressure.status === 'drained') room.phase = 'pressure-complete'
+    } else {
+      room.transmitter = applyTransmitterAction(
+        room.transmitter,
+        request.action,
+      )
+      if (room.transmitter.status === 'sent')
+        room.phase = 'transmitter-complete'
     }
     room.actions.set(key, fingerprint)
     this.changed(room)
@@ -352,6 +413,7 @@ export class Lobby {
       room.phase = 'lobby'
       room.power = initialPower()
       room.pressure = initialPressure()
+      room.transmitter = initialTransmitter()
       room.actions.clear()
       room.players.forEach((entry) => {
         entry.ready = false
@@ -394,6 +456,7 @@ export class Lobby {
         room.phase = 'lobby'
         room.power = initialPower()
         room.pressure = initialPressure()
+        room.transmitter = initialTransmitter()
         room.actions.clear()
         remaining.forEach((player) => {
           player.ready = false

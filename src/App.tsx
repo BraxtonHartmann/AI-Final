@@ -4,6 +4,7 @@ import type { Role } from '../shared/protocol'
 import './App.css'
 import { PowerPanel } from './PowerPanel'
 import { PressurePanel } from './PressurePanel'
+import { TransmitterPanel } from './TransmitterPanel'
 
 const roles: { id: Role; title: string; description: string }[] = [
   {
@@ -257,6 +258,17 @@ function App() {
               {room.pressure && (
                 <PressurePanel
                   pressure={room.pressure}
+                  disabled={disabled}
+                  partnerConnected={
+                    room.players.length === 2 &&
+                    room.players.every((entry) => entry.connected)
+                  }
+                  send={send}
+                />
+              )}
+              {room.transmitter && (
+                <TransmitterPanel
+                  transmitter={room.transmitter}
                   disabled={disabled}
                   partnerConnected={
                     room.players.length === 2 &&

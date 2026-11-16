@@ -4,7 +4,7 @@
 
 Record major prompts, agent runs, decisions, checks, and remediation throughout the capstone. Preserve full transcripts through chat exports or sanitized copies when available, and link their locations here. Summaries in this file complement those transcripts.
 
-Entries 001–004 were reconstructed on November 16, 2026 from the visible chat and tool results. Quoted user prompts are verbatim excerpts. Assistant outputs are summarized. Full raw transcripts have not yet been exported into this repository. Historical AI-run checks are distinguished from human review. No failure case studies have been completed yet.
+Entries 001–004 were reconstructed on November 16, 2026 from the visible chat and tool results. Quoted user prompts are verbatim excerpts. Assistant outputs are summarized. Full raw transcripts have not yet been exported into this repository. Historical AI-run checks are distinguished from human review. Entry 006 records two implementation and test-tooling failures with remediation evidence for later human review.
 
 For future entries, include date, exact prompt or transcript reference, agent/tool and model when known, context, changes, checks and results, human review, remediation, and commit reference. Avoid placing credentials or personal information in logs.
 
@@ -66,7 +66,27 @@ For future entries, include date, exact prompt or transcript reference, agent/to
 - AI-run verification — Reviewed the documents against the visible assignment and conversation. Checked whitespace with git diff --check. Documentation-only changes did not require a new app build.
 - Human verification — Pending project-owner review of the specification and historical log.
 - Remediation — No implementation failure case identified in this task.
-- Commit — Pending.
+- Commit — 15f3963, docs: define escape room scope and prompt log [AI-assisted]. Pushed to origin/main on November 16, 2026.
+
+## 006 — Two-player lobby implementation
+
+- Date — November 16, 2026.
+- User prompt — “Lets commit and push those, then start building the two-player lobby.”
+- Agent/tools — Codex, Git, npm, Node.js, Socket.IO, TypeScript, Playwright Chromium, Prettier, and official Socket.IO documentation. Exact model identifier was not recorded. No subagents were used.
+- Context — SPEC.md, prior project discussion, current React starter, package configuration, and repository status.
+- Publication — Committed SPEC.md and PROMPT_LOG.md as 15f3963 and pushed to origin/main before implementation.
+- Changes — Added server-owned two-player rooms, random room codes and separate private seat credentials, exclusive role selection, readiness and start gates, shared briefing, leave behavior, refresh/reconnect recovery, seat and room expiration, request validation, and per-address request limits. Added shared message types, a responsive React interface, automated tests, backend type checking, run instructions, and AGENTS.md repository context. The latter was written during the implementation wrap-up and applies to subsequent work.
+- Working design decisions — Used “Below the Surface” as a proposed title and a dark underwater control-panel visual style. Adopted the specification's proposed five-minute seat reservation and thirty-minute inactivity expiry. Sessions are kept in memory and browser credentials in sessionStorage. Reclaiming a seat replaces its previous connection. Either ready player can start once both meet the requirements. Leaving or losing an expired seat returns the remaining player to the lobby. Puzzle gameplay remains pending.
+- Test-driven evidence — Wrote the initial lobby rule tests before the lobby module. The first run failed with ERR_MODULE_NOT_FOUND because implementation had not been created. Implemented the rules, then exercised the real transport and browser entry points.
+- Failure case candidate 1 — The AI used node:events once(socket, 'connect') in the transport test. Backend type checking failed with TS2769 because the Socket.IO client did not satisfy that helper's declared event-source overload. Replaced it with a Promise resolved by socket.once('connect') and rejected by socket.once('connect_error'). The build and transport test then passed. This was a test-code typing error detected by the compiler.
+- Failure case candidate 2 — The initial Playwright configuration treated an already-running Vite frontend as proof that the combined app was ready. Browser tests could not connect to the absent backend, leaving Create a room disabled. Inspected test output and local listeners, then changed Playwright to check/start the backend health endpoint and frontend separately. Both browser tests then passed with the existing frontend reused. This was a test-runner readiness bug.
+- Additional review — Reset readiness on every successful seat recovery so a refresh that reclaims a still-connected seat also requires readiness confirmation. Verified with rule and browser flows.
+- Environment recovery — Local socket listening and browser execution required tool-level sandbox escalation. npm reported the same blocked optional fsevents install script as the initial setup. The local servers, build, and browser checks subsequently worked.
+- AI-run verification — Five rule/transport tests passed. Two Chromium browser tests passed, covering two-player join, capacity rejection, role selection, refresh recovery, synchronized start, leave, keyboard form submission, and mobile overflow. Build and lint passed. npm dependency installation/lockfile verification reported zero vulnerabilities across 75 packages. Git whitespace checks passed.
+- Visual verification — Captured desktop entry, desktop room, and mobile entry screenshots in temporary files for inspection. Screenshots are verification artifacts outside the repository.
+- Human verification — Pending project-owner code review and manual playtesting. Firefox, Safari, screen-reader review, and a full automated accessibility audit remain pending.
+- Current run state — Existing Vite frontend was reused. Started the new backend separately for local preview. Future fresh runs use npm run dev to start both.
+- Commit — Lobby changes pending review and commit. Documentation push is complete.
 
 ## Future entry template
 

@@ -1,5 +1,12 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto'
-import type { Role, RoomView, Session } from '../shared/protocol.ts'
+import type {
+  PowerAction,
+  PowerState,
+  Role,
+  RoomView,
+  Session,
+} from '../shared/protocol.ts'
+import { applyPowerAction, initialPower, powerView } from './power.ts'
 
 interface Player {
   id: string
@@ -16,6 +23,8 @@ interface Room {
   phase: RoomView['phase']
   players: Player[]
   updatedAt: number
+  power: PowerState
+  actions: Map<string, string>
 }
 
 const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -60,8 +69,9 @@ export class Lobby {
     return this.view(room.code)
   }
 
-  view(code: string): RoomView {
+  view(code: string, socketId?: string): RoomView {
     const room = this.room(code)
+    const player = room.players.find((entry) => entry.socketId === socketId)
     return {
       code: room.code,
       revision: room.revision,
@@ -72,6 +82,9 @@ export class Lobby {
         ready: player.ready,
         connected: player.socketId !== null,
       })),
+      ...(room.phase !== 'lobby' && player?.role
+        ? { power: powerView(room.power, player.role) }
+        : {}),
     }
   }
 
@@ -121,6 +134,8 @@ export class Lobby {
       phase: 'lobby',
       players: [],
       updatedAt: this.now(),
+      power: initialPower(),
+      actions: new Map(),
     }
     this.rooms.set(code, room)
     return this.add(room, socketId)
@@ -157,8 +172,9 @@ export class Lobby {
     player.disconnectedAt = null
     player.ready = false
     this.connections.set(socketId, code)
+    this.changed(room)
     return {
-      room: this.changed(room),
+      room: this.view(code, socketId),
       session: { code, token, playerId: player.id },
       replacedSocket,
     }
@@ -191,7 +207,7 @@ export class Lobby {
 
   start(socketId: string) {
     const { room } = this.member(socketId)
-    if (room.phase === 'briefing') return this.view(room.code)
+    if (room.phase !== 'lobby') return this.view(room.code, socketId)
     if (
       room.players.length !== 2 ||
       !room.players.every(
@@ -202,8 +218,51 @@ export class Lobby {
         'Both players must be connected, assigned a role, and ready.',
       )
     }
-    room.phase = 'briefing'
-    return this.changed(room)
+    room.phase = 'power'
+    room.power = initialPower()
+    room.actions.clear()
+    this.changed(room)
+    return this.view(room.code, socketId)
+  }
+
+  power(
+    socketId: string,
+    action: PowerAction,
+    actionId: string,
+    expectedVersion: number,
+  ) {
+    const { room, player } = this.member(socketId)
+    if (player.role !== 'equipment')
+      throw new Error('Only the equipment operator can use the panel.')
+    if (room.phase === 'lobby')
+      throw new Error('Start the session before using the panel.')
+    if (
+      !room.players.every((entry) => entry.socketId) ||
+      room.players.length !== 2
+    ) {
+      throw new Error(
+        'Wait for your partner to reconnect before using the panel.',
+      )
+    }
+    const key = `${player.id}:${actionId}`
+    const fingerprint = JSON.stringify({ action, expectedVersion })
+    const previous = room.actions.get(key)
+    if (previous) {
+      if (previous !== fingerprint)
+        throw new Error('Action ID was already used for a different action.')
+      return this.view(room.code, socketId)
+    }
+    if (expectedVersion !== room.power.version)
+      throw new Error('Panel changed. Check the latest state and try again.')
+    if (room.actions.size >= 1024)
+      throw new Error(
+        'Panel action limit reached. Leave and start a new session.',
+      )
+    room.power = applyPowerAction(room.power, action)
+    room.actions.set(key, fingerprint)
+    if (room.power.status === 'restored') room.phase = 'power-complete'
+    this.changed(room)
+    return this.view(room.code, socketId)
   }
 
   leave(socketId: string) {
@@ -213,6 +272,8 @@ export class Lobby {
     if (room.players.length === 0) this.rooms.delete(room.code)
     else {
       room.phase = 'lobby'
+      room.power = initialPower()
+      room.actions.clear()
       room.players.forEach((entry) => {
         entry.ready = false
       })
@@ -252,6 +313,8 @@ export class Lobby {
       if (remaining.length === 0) this.rooms.delete(room.code)
       else {
         room.phase = 'lobby'
+        room.power = initialPower()
+        room.actions.clear()
         remaining.forEach((player) => {
           player.ready = false
         })

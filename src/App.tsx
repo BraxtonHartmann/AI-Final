@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLobby } from './useLobby'
 import type { Role } from '../shared/protocol'
 import './App.css'
+import { PowerPanel } from './PowerPanel'
 
 const roles: { id: Role; title: string; description: string }[] = [
   {
@@ -41,7 +42,7 @@ function App() {
           {connected ? 'Station connected' : 'Connecting to station…'}
         </span>
       </header>
-      <main>
+      <main className={room && room.phase !== 'lobby' ? 'game-main' : ''}>
         <section className="mission-intro" aria-labelledby="mission-title">
           <p className="eyebrow">A two-player escape room</p>
           <h1 id="mission-title">
@@ -240,28 +241,17 @@ function App() {
                   </div>
                 </>
               ) : (
-                <div className="briefing" role="status">
-                  <p className="eyebrow">Crew assembled</p>
-                  <h3>You're in position.</h3>
-                  <p>
-                    You are the{' '}
-                    <strong>
-                      {roles
-                        .find((role) => role.id === player?.role)
-                        ?.title.toLowerCase()}
-                    </strong>
-                    . Keep talking to your partner.
-                  </p>
-                  <p className="muted">
-                    The lobby is complete. The station puzzles are coming in the
-                    next build.
-                  </p>
-                  <p>
-                    {room.players.every((entry) => entry.connected)
-                      ? 'Both players connected.'
-                      : 'Your partner is reconnecting…'}
-                  </p>
-                </div>
+                room.power && (
+                  <PowerPanel
+                    power={room.power}
+                    disabled={disabled}
+                    partnerConnected={
+                      room.players.length === 2 &&
+                      room.players.every((entry) => entry.connected)
+                    }
+                    send={send}
+                  />
+                )
               )}
               <button
                 className="text-button"

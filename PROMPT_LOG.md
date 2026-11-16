@@ -86,7 +86,23 @@ For future entries, include date, exact prompt or transcript reference, agent/to
 - Visual verification — Captured desktop entry, desktop room, and mobile entry screenshots in temporary files for inspection. Screenshots are verification artifacts outside the repository.
 - Human verification — Pending project-owner code review and manual playtesting. Firefox, Safari, screen-reader review, and a full automated accessibility audit remain pending.
 - Current run state — Existing Vite frontend was reused. Started the new backend separately for local preview. Future fresh runs use npm run dev to start both.
-- Commit — Lobby changes pending review and commit. Documentation push is complete.
+- Commit — 85a1b5c, feat: implement two-player lobby and recovery [AI-assisted]. Committed and pushed on the next user request.
+
+## 007 — Publish lobby and build Restore Power
+
+- Date — November 16, 2026.
+- User prompt — “Lets commit and push the lobby, then start building the first puzzle.”
+- Agent/tools — Codex, terminal Git/npm/Node.js tools, TypeScript, Socket.IO, Playwright Chromium, and Prettier. Exact model identifier was not recorded. No subagents were used.
+- Context — Read AGENTS.md, SPEC.md, README.md, the prior chat, current server/client protocol and lobby code, reconnect logic, and existing tests.
+- Publication — Committed the lobby and accompanying records as 85a1b5c with [AI-assisted] and pushed to origin/main before building the puzzle.
+- Design choices — Used the fixed safe sequence Tide → Anchor → Beacon and designated Coil as damaged. A wrong activation trips the panel. Only the equipment operator can reset. Completion leads to a shared power-restored screen while the second puzzle remains pending. These initial mechanics were chosen by the assistant within the discussed breaker-puzzle design for project-owner review.
+- Test-driven evidence — Added power-rule tests before creating server/power.ts. The initial run failed with ERR_MODULE_NOT_FOUND. After implementation, solution, trip, reset, and terminal-state tests passed.
+- Changes — Added deterministic server-side rules, private analyst instructions, role-specific snapshots for both broadcasts and acknowledgments, operator switches, analyst wiring diagram, shared status, reset, completion, and progress recovery after refresh. Added version checks and accepted-action ID deduplication across reconnects/resets. Duplicate IDs with different payloads are rejected. Puzzle controls pause while a partner is offline. Leaving or losing an expired seat clears the run. Updated documentation and browser tests to replace the previous briefing milestone.
+- Additional review — Used the room revision check for acknowledgments and reconnect snapshots as well as broadcasts so an older response cannot overwrite a newer snapshot. Kept solution constants in the server module. Operator messages omit the sequence and damaged-circuit fields. A 1,024-action bound limits per-room replay history.
+- Environment recovery — The sandbox blocked socket listening during the initial full test run. Retried the transport checks with tool-level escalation. An offline npm formatting invocation could not resolve cached package metadata, so ran the existing cached Prettier binary directly.
+- AI-run verification — Nine rule/transport tests and three Chromium browser tests passed. Coverage includes wrong/damaged breakers, reset, exact solution, operator authorization, private broadcasts and acknowledgments, malformed requests, stale versions, duplicate IDs, partner disconnection, refresh recovery, synchronized completion, and mobile overflow. Build and lint passed. Desktop and mobile screenshots of both roles were visually inspected from temporary files outside the repository.
+- Human verification — Pending project-owner playtesting and code review. Firefox, Safari, screen-reader review, and the full accessibility/security audits remain pending.
+- Commit — Puzzle changes saved locally, pending review and commit. Lobby push is complete.
 
 ## Future entry template
 

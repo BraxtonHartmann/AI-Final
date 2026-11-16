@@ -1,5 +1,25 @@
 export type Role = 'equipment' | 'control'
 
+export const breakers = [
+  { id: 'beacon', label: 'Beacon', symbol: '△' },
+  { id: 'coil', label: 'Coil', symbol: 'ϟ' },
+  { id: 'tide', label: 'Tide', symbol: '≈' },
+  { id: 'anchor', label: 'Anchor', symbol: '⊥' },
+] as const
+export type BreakerId = (typeof breakers)[number]['id']
+export type PowerAction =
+  { type: 'breaker'; breaker: BreakerId } | { type: 'reset' }
+export interface PowerState {
+  status: 'active' | 'tripped' | 'restored'
+  activated: BreakerId[]
+  version: number
+}
+export type PowerView = PowerState &
+  (
+    | { role: 'equipment' }
+    | { role: 'control'; sequence: BreakerId[]; damaged: BreakerId }
+  )
+
 export interface PlayerView {
   id: string
   role: Role | null
@@ -10,8 +30,9 @@ export interface PlayerView {
 export interface RoomView {
   code: string
   revision: number
-  phase: 'lobby' | 'briefing'
+  phase: 'lobby' | 'power' | 'power-complete'
   players: PlayerView[]
+  power?: PowerView
 }
 
 export type Request =
@@ -22,6 +43,12 @@ export type Request =
   | { type: 'ready'; ready: boolean }
   | { type: 'start' }
   | { type: 'leave' }
+  | {
+      type: 'power'
+      action: PowerAction
+      actionId: string
+      expectedVersion: number
+    }
 
 export interface Session {
   code: string

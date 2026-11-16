@@ -63,7 +63,44 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
   await send(winner, { type: 'ready', ready: true })
   await send(loser, { type: 'ready', ready: true })
   const started = await send(a, { type: 'start' })
-  assert.ok(started.ok && started.room?.phase === 'briefing')
+  assert.ok(started.ok && started.room?.phase === 'power')
+  const operatorView = await send(winner, { type: 'start' })
+  const analystView = await send(loser, { type: 'start' })
+  assert.ok(operatorView.ok && operatorView.room?.power?.role === 'equipment')
+  assert.equal('sequence' in operatorView.room.power, false)
+  assert.equal('damaged' in operatorView.room.power, false)
+  assert.ok(analystView.ok && analystView.room?.power?.role === 'control')
+  assert.deepEqual(analystView.room.power.sequence, [
+    'tide',
+    'anchor',
+    'beacon',
+  ])
+  const action: Request = {
+    type: 'power',
+    action: { type: 'breaker', breaker: 'tide' },
+    actionId: 'network-first',
+    expectedVersion: 0,
+  }
+  assert.equal((await send(loser, action)).ok, false)
+  const broadcasts: string[] = []
+  winner.on('room', (room) => broadcasts.push(JSON.stringify(room)))
+  const moved = await send(winner, action)
+  assert.ok(moved.ok && moved.room?.power?.version === 1)
+  const repeated = await send(winner, action)
+  assert.ok(repeated.ok && repeated.room?.power?.version === 1)
+  for (const invalid of [
+    { ...action, actionId: {}, expectedVersion: 1 },
+    { ...action, expectedVersion: '1' },
+    { ...action, expectedVersion: -1 },
+    { ...action, action: { type: 'breaker', breaker: 'unknown' } },
+  ])
+    assert.equal((await send(winner, invalid as unknown as Request)).ok, false)
+  assert.ok(broadcasts.length > 0)
+  assert.ok(
+    broadcasts.every(
+      (value) => !value.includes('sequence') && !value.includes('damaged'),
+    ),
+  )
   const isolated = await send(other, { type: 'create' })
   assert.ok(isolated.ok && isolated.room)
   assert.notEqual(isolated.room.code, session.code)
@@ -85,7 +122,7 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
     code: session.code,
     token: session.token,
   })
-  assert.ok(restored.ok && restored.room?.phase === 'briefing')
+  assert.ok(restored.ok && restored.room?.phase === 'power')
   assert.equal(a.connected, false)
   assert.equal(JSON.stringify(restored.room).includes(session.token), false)
   const malformed = await send(c, {

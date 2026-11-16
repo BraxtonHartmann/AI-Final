@@ -7,11 +7,39 @@ import type {
   ServerEvents,
 } from '../shared/protocol.ts'
 import { Lobby } from './lobby.ts'
+import { breakers } from '../shared/protocol.ts'
 
 function parseRequest(value: unknown): Request {
   if (!value || typeof value !== 'object') throw new Error('Invalid request.')
   const data = value as Record<string, unknown>
   switch (data.type) {
+    case 'power': {
+      if (
+        typeof data.actionId !== 'string' ||
+        !/^[a-zA-Z0-9-]{1,64}$/.test(data.actionId) ||
+        !Number.isSafeInteger(data.expectedVersion) ||
+        (data.expectedVersion as number) < 0
+      )
+        break
+      if (!data.action || typeof data.action !== 'object') break
+      const action = data.action as Record<string, unknown>
+      if (action.type === 'reset')
+        return {
+          type: 'power',
+          action: { type: 'reset' },
+          actionId: data.actionId,
+          expectedVersion: data.expectedVersion as number,
+        }
+      const breaker = breakers.find((entry) => entry.id === action.breaker)
+      if (action.type === 'breaker' && breaker)
+        return {
+          type: 'power',
+          action: { type: 'breaker', breaker: breaker.id },
+          actionId: data.actionId,
+          expectedVersion: data.expectedVersion as number,
+        }
+      break
+    }
     case 'create':
     case 'start':
     case 'leave':
@@ -72,9 +100,8 @@ export function createLobbyServer() {
 
   function publish() {
     for (const code of lobby.codes()) {
-      const view = lobby.view(code)
       for (const socketId of lobby.sockets(code))
-        io.to(socketId).emit('room', view)
+        io.to(socketId).emit('room', lobby.view(code, socketId))
     }
   }
 
@@ -131,6 +158,17 @@ export function createLobbyServer() {
             break
           case 'start':
             reply = { ok: true, room: lobby.start(socket.id) }
+            break
+          case 'power':
+            reply = {
+              ok: true,
+              room: lobby.power(
+                socket.id,
+                request.action,
+                request.actionId,
+                request.expectedVersion,
+              ),
+            }
             break
           case 'leave':
             lobby.leave(socket.id)

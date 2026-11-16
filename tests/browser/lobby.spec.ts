@@ -44,10 +44,10 @@ test('two browsers join, choose roles, recover after refresh, and enter together
     await b.getByRole('button', { name: 'Ready up' }).click()
     await a.getByRole('button', { name: 'Enter station' }).click()
     await expect(
-      a.getByRole('heading', { name: "You're in position." }),
+      a.getByRole('heading', { name: 'Restore the power.' }),
     ).toBeVisible()
     await expect(
-      b.getByRole('heading', { name: "You're in position." }),
+      b.getByRole('heading', { name: 'Restore the power.' }),
     ).toBeVisible()
     await a.getByRole('button', { name: 'Leave room' }).click()
     await expect(a.getByRole('button', { name: 'Create a room' })).toBeVisible()

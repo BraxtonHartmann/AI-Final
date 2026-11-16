@@ -4,7 +4,7 @@
 
 Build a two-player browser escape room for the CS 3810 Applied Generative AI capstone, primarily under Track A, Web Design & Interactive Applications. Players receive different information and must communicate to escape a submerged research station.
 
-This is the initial specification, dated November 16, 2026. The browser platform, co-op concept, and React stack were discussed with the project owner. The underwater setting, puzzle rules, recovery policy, and scope below are working proposals to review during development. The repository currently contains the Vite React starter. Game functionality is pending.
+This is the initial specification, dated November 16, 2026. The browser platform, co-op concept, and React stack were discussed with the project owner. The underwater setting, puzzle rules, recovery policy, and scope below are working proposals to review during development. The current build includes the two-player lobby and Restore Power puzzle. The pressure and hatch puzzles remain pending.
 
 ## Players and experience
 
@@ -30,7 +30,9 @@ Accounts, matchmaking, built-in voice chat, additional rooms, 3D movement, and A
 
 The equipment player operates four breakers labeled with distinct symbols and text names. The control player receives a wiring diagram and instructions identifying a damaged breaker and the safe activation order. Activating an incorrect breaker trips the panel and gives both players clear feedback. The equipment player can reset and retry. The correct sequence restores power and unlocks the pressure system.
 
-Before implementation, define the exact sequence, diagram, and trip rules together so the instructions lead to a reproducible solution. Unit tests must cover the solution, incorrect actions, and reset behavior.
+The initial implemented sequence is Tide → Anchor → Beacon. Coil is the damaged breaker and stays off. The operator sees all four labeled switches. Only the analyst receives the ordered feed diagram and damaged-circuit warning. Any incorrect breaker, including a repeated activation, trips the panel. Already-energized breakers are disabled in the operator UI. Reset clears partial progress and returns the panel to active status. Completion locks the panel and shows both players a power-restored outcome.
+
+This fixed sequence is an implementation choice for the first playable version and remains open to playtesting. Puzzle actions require the equipment role, an active session, and both players connected. They carry an action ID and expected puzzle version. Accepted IDs survive reconnects and resets within a run, exact repeats return the latest snapshot, stale versions are rejected, and reused IDs with different input are rejected. Leaving or seat expiration returns the remaining player to the lobby and clears puzzle progress. A temporary disconnect preserves progress. Tests cover the solution, incorrect actions, reset, role filtering, and replay protection.
 
 ### 2. Drain the airlock
 

@@ -2,7 +2,7 @@
 
 A two-player browser escape room for the CS 3810 AI capstone. Players work from separate equipment and control-room screens to escape a submerged research station.
 
-The current milestone is a working real-time lobby. Players can create or join a room, choose distinct roles, mark themselves ready, and enter a shared briefing. Puzzle gameplay is the next milestone.
+The current build includes the real-time two-player lobby and the first playable puzzle, Restore Power. Players join a room, take different roles, and communicate to energize the station. Pressure and hatch puzzles are future milestones.
 
 ## Run locally
 
@@ -26,10 +26,18 @@ The default setup runs locally. Public hosting and access from other devices req
 3. Choose **Equipment operator** in one browser and **Control room analyst** in the other. A claimed role becomes unavailable to the partner.
 4. Choose **Ready up** in both browsers. **Enter station** becomes available only when both players have roles, are connected, and are ready.
 5. Refresh one browser. Its seat and role return, and its ready status resets. Mark it ready again.
-6. Choose **Enter station**. Both players see the briefing with their own role.
+6. Choose **Enter station**. The operator sees four breaker switches. The analyst sees a wiring diagram and a damaged-circuit warning.
 7. Choose **Leave room** to release the seat. The remaining player returns to the lobby.
 
 A third player receives a room-full message. Invalid codes produce a readable error. A disconnected seat is reserved for five minutes. A room expires after thirty minutes without an accepted state change. Restarting the backend clears all rooms. A reconnect then returns the player to room entry with an expiration message.
+
+## First puzzle walkthrough
+
+The analyst guides the operator through **Tide → Anchor → Beacon**, leaving **Coil** off. The order is fixed in this initial version. Each correct activation energizes a circuit. Activating the wrong breaker trips the panel and disables further breaker input until the operator chooses **Reset panel**. Reset clears all partial progress while keeping both players in the room.
+
+Only the equipment operator can activate or reset breakers. The analyst's sequence and damage warning are sent only to that role. Both views show the shared panel status. Controls pause while a partner is disconnected. Refreshing either browser restores the current puzzle progress. After the final correct breaker, both players see the power-restored outcome. Further puzzle actions are locked. The next puzzle is pending, and leaving returns the remaining player to the lobby for a new run.
+
+Puzzle requests include a unique action ID and the expected panel version. The server ignores exact repeats of accepted actions and rejects stale versions or reused IDs with different payloads. A room retains at most 1,024 accepted puzzle actions per run. Starting a new run clears that history.
 
 ## Architecture
 
@@ -43,11 +51,12 @@ flowchart LR
 
 - `src/` contains the React interface and reconnecting Socket.IO client.
 - `shared/protocol.ts` defines messages and public room snapshots.
-- `server/lobby.ts` owns room capacity, roles, readiness, expiration, and session ownership.
+- `server/lobby.ts` owns room capacity, roles, readiness, expiration, session ownership, and authorized puzzle actions.
+- `server/power.ts` implements the deterministic breaker rules and builds role-specific puzzle views.
 - `server/server.ts` validates network requests, applies a per-address request limit, and sends room snapshots only to their members.
 - `tests/` contains rule, transport, and browser tests.
 
-Room codes permit joining open seats. Separate random credentials authorize seat recovery. Public snapshots omit those credentials. The server validates role ownership and start conditions on every action. In-memory storage supports one server process. State-changing lobby setters are idempotent where applicable, and snapshots carry increasing revisions. General action-ID deduplication remains part of future puzzle implementation.
+Room codes permit joining open seats. Separate random credentials authorize seat recovery. Public snapshots omit those credentials. The server validates role ownership, puzzle versions, and allowed actions. Each connected player receives a separately filtered snapshot. In-memory storage supports one server process. State-changing lobby setters are idempotent where applicable, snapshots carry increasing revisions, and puzzle actions are deduplicated across reconnects.
 
 ## Verification
 
@@ -62,7 +71,7 @@ npm audit
 
 The build checks frontend and backend TypeScript and produces frontend assets in dist. Production serving and deployment are pending. To preview the built frontend, start the backend with `CLIENT_ORIGIN=http://localhost:4173 npm run dev:server` in one terminal and run `npm run preview` in another. Stop the development backend first so port 3001 is available.
 
-Rule tests cover capacity, role ownership, ready/start gates, private recovery, readiness reset, expiration, and room isolation. Transport tests connect actual Socket.IO clients to verify competing role claims, unauthorized actions, malformed requests, and credential-based seat recovery. Playwright tests exercise the lobby in separate Chromium contexts, reject a third player, restore a refreshed seat, synchronize the briefing, and check keyboard form submission and narrow-screen overflow.
+Rule tests cover capacity, role ownership, ready/start gates, private recovery, readiness reset, expiration, and room isolation. Transport tests connect actual Socket.IO clients to verify competing role claims, unauthorized actions, malformed requests, and credential-based seat recovery. Puzzle tests cover the exact solution, wrong order, damaged and repeated breakers, reset, role privacy, stale requests, duplicate actions, partner disconnection, and refresh recovery. Playwright tests exercise the lobby and complete puzzle in separate Chromium contexts, reject a third player, synchronize trip/reset/completion, and check keyboard interaction and narrow-screen overflow.
 
 Automated checks are AI-run evidence. Project-owner code review, keyboard and screen-reader review, and manual Chrome/Firefox/Safari verification remain to be recorded. The complete accessibility and security reviews described in SPEC.md remain capstone milestones.
 

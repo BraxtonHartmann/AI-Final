@@ -28,6 +28,17 @@ function readSession(): Session | null {
   return null
 }
 
+function latestRoom(current: RoomView | null, next: RoomView | null) {
+  if (
+    !next ||
+    !current ||
+    current.code !== next.code ||
+    next.revision >= current.revision
+  )
+    return next
+  return current
+}
+
 export function useLobby() {
   const socketRef = useRef<Socket<ServerEvents, ClientEvents> | null>(null)
   const sessionRef = useRef<Session | null>(null)
@@ -65,16 +76,14 @@ export function useLobby() {
       const previous = sessionRef.current
       try {
         if (previous) {
-          const reply = await socket
-            .timeout(5000)
-            .emitWithAck('request', {
-              type: 'resume',
-              code: previous.code,
-              token: previous.token,
-            })
+          const reply = await socket.timeout(5000).emitWithAck('request', {
+            type: 'resume',
+            code: previous.code,
+            token: previous.token,
+          })
           if (reply.ok && reply.session) {
             saveSession(reply.session)
-            setRoom(reply.room)
+            setRoom((current) => latestRoom(current, reply.room))
           } else if (!reply.ok) {
             saveSession(null)
             setRoom(null)
@@ -90,13 +99,7 @@ export function useLobby() {
       }
     })
     socket.on('room', (next) => {
-      setRoom((current) =>
-        !current ||
-        current.code !== next.code ||
-        next.revision >= current.revision
-          ? next
-          : current,
-      )
+      setRoom((current) => latestRoom(current, next))
     })
     socket.on('disconnect', () => {
       setConnected(false)
@@ -143,7 +146,7 @@ export function useLobby() {
       }
       if (reply.session) saveSession(reply.session)
       if (request.type === 'leave') saveSession(null)
-      setRoom(reply.room)
+      setRoom((current) => latestRoom(current, reply.room))
     } catch {
       setError(
         'The connection was interrupted. Restoring the latest room state…',

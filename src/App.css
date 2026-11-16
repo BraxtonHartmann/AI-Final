@@ -391,3 +391,227 @@ footer {
     flex-direction: column;
   }
 }
+
+.game-main {
+  display: block;
+  max-width: 1040px;
+  margin: auto;
+}
+.game-main .mission-intro {
+  display: none;
+}
+.game-main .room-heading {
+  padding-bottom: 15px;
+  border-bottom: 1px solid #35515a;
+}
+.game-main .room-code {
+  font-size: 24px;
+  margin: 0;
+}
+.power-puzzle {
+  padding-top: 28px;
+}
+.puzzle-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.puzzle-heading h3 {
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.1;
+  margin: 0 0 24px;
+  font-weight: 500;
+}
+.puzzle-heading h3:focus {
+  outline: none;
+}
+.power-indicator {
+  border: 1px solid #65808a;
+  padding: 8px 14px;
+  border-radius: 3px;
+  font-size: 14px;
+}
+.power-indicator.restored {
+  color: #c4e7d2;
+  border-color: #b8e0c7;
+}
+.power-indicator.tripped {
+  color: #ffe0b9;
+  border-color: #cb9c6c;
+}
+.power-status {
+  background: #0a2028;
+  border-left: 3px solid #65808a;
+  padding: 16px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.power-status.tripped {
+  background: #3c3028;
+  border-color: #cb9c6c;
+  color: #ffe0b9;
+}
+.power-status.restored {
+  background: #1b3e40;
+  border-color: #b8e0c7;
+}
+.puzzle-workspace {
+  margin-top: 30px;
+}
+.panel-instructions h4,
+.power-success h4 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+.panel-instructions p {
+  color: #b4c8ca;
+  max-width: 640px;
+  margin-top: 0;
+}
+.breaker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 25px 0;
+}
+.breaker-switch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #65808a;
+  border-radius: 4px;
+  background: #0a2028;
+  color: #e6f0ed;
+  padding: 24px 12px;
+}
+.breaker-switch:hover:not(:disabled) {
+  background: #193740;
+}
+.breaker-switch:disabled {
+  opacity: 1;
+  color: #b4c8ca;
+}
+.breaker-switch.energized {
+  background: #1b3e40;
+  border-color: #b8e0c7;
+}
+.breaker-symbol {
+  font-size: 36px;
+  line-height: 1;
+}
+.switch-track {
+  width: 36px;
+  height: 62px;
+  background: #06151c;
+  border: 1px solid #65808a;
+  border-radius: 4px;
+  display: flex;
+  align-items: end;
+  padding: 4px;
+}
+.switch-track > span {
+  width: 26px;
+  height: 25px;
+  border-radius: 2px;
+  background: #65808a;
+  border-top: 3px solid #9db4b9;
+}
+.energized .switch-track {
+  align-items: start;
+}
+.energized .switch-track > span {
+  background: #b8e0c7;
+  border-top-color: #e4f4e9;
+}
+.switch-status {
+  font-size: 13px;
+}
+.reset-panel {
+  margin-bottom: 10px;
+}
+.wiring-manual {
+  background: #0a2028;
+  border: 1px solid #65808a;
+  padding: 25px;
+  margin-top: 25px;
+}
+.wiring-path {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  list-style-position: inside;
+  padding: 0;
+  margin: 25px 0;
+  gap: 24px;
+}
+.wiring-path li {
+  position: relative;
+  border: 1px solid #65808a;
+  padding: 20px 12px;
+  text-align: center;
+}
+.wiring-path li:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  right: -23px;
+  top: 42%;
+  color: #b8e0c7;
+}
+.wiring-path li > span,
+.wiring-path li > strong {
+  display: block;
+}
+.diagram-symbol {
+  font-size: 36px;
+  margin: 8px 0;
+}
+.wiring-path li > span:last-child {
+  font-size: 12px;
+  color: #b4c8ca;
+  margin-top: 10px;
+}
+.manual-rule {
+  color: #c0d1d2;
+  font-size: 15px;
+}
+.damage-warning {
+  border-top: 1px solid #65808a;
+  padding-top: 20px;
+  color: #ffe0b9;
+  font-size: 15px;
+}
+.power-success {
+  padding: 24px 0 0;
+  color: #c4e7d2;
+}
+.power-success p {
+  margin-bottom: 0;
+}
+@media (max-width: 650px) {
+  .breaker-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .puzzle-heading {
+    align-items: start;
+  }
+  .puzzle-heading .eyebrow {
+    line-height: 1.6;
+  }
+  .power-indicator {
+    padding: 6px 9px;
+  }
+  .wiring-manual {
+    padding: 18px;
+  }
+  .wiring-path {
+    grid-template-columns: 1fr;
+  }
+  .wiring-path li:not(:last-child)::after {
+    content: '↓';
+    right: 49%;
+    top: auto;
+    bottom: -22px;
+  }
+}

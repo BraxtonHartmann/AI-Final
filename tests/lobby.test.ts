@@ -13,8 +13,8 @@ test('room capacity, role ownership, readiness, and start gates', () => {
   lobby.role('two', 'control')
   lobby.ready('one', true)
   lobby.ready('two', true)
-  assert.equal(lobby.start('two').phase, 'briefing')
-  assert.equal(lobby.start('one').phase, 'briefing')
+  assert.equal(lobby.start('two').phase, 'power')
+  assert.equal(lobby.start('one').phase, 'power')
   assert.throws(() => lobby.role('one', 'control'), /started/)
   assert.equal(second.room.players.length, 2)
 })
@@ -76,4 +76,92 @@ test('expired seats free capacity and inactive rooms expire', () => {
   now += 30 * 60_000 + 1
   const removed = lobby.sweep()
   assert.deepEqual(removed, ['two', 'three'])
+})
+
+test('puzzle views protect instructions, authorize moves, and deduplicate across reconnect', () => {
+  const lobby = new Lobby()
+  const created = lobby.create('operator')
+  const analystSession = lobby.join('analyst', created.room.code).session
+  lobby.role('operator', 'equipment')
+  lobby.role('analyst', 'control')
+  assert.throws(
+    () => lobby.power('operator', { type: 'reset' }, 'early', 0),
+    /Start/,
+  )
+  lobby.ready('operator', true)
+  lobby.ready('analyst', true)
+  const started = lobby.start('operator')
+  assert.ok(
+    started.power &&
+      !('sequence' in started.power) &&
+      !('damaged' in started.power),
+  )
+  const analyst = lobby.view(created.room.code, 'analyst').power
+  assert.ok(analyst?.role === 'control')
+  assert.deepEqual(analyst.sequence, ['tide', 'anchor', 'beacon'])
+  assert.equal(lobby.view(created.room.code).power, undefined)
+  assert.throws(
+    () => lobby.power('analyst', { type: 'reset' }, 'denied', 0),
+    /Only/,
+  )
+  const first = lobby.power(
+    'operator',
+    { type: 'breaker', breaker: 'tide' },
+    'first',
+    0,
+  )
+  const repeated = lobby.power(
+    'operator',
+    { type: 'breaker', breaker: 'tide' },
+    'first',
+    0,
+  )
+  assert.equal(first.revision, repeated.revision)
+  assert.deepEqual(repeated.power?.activated, ['tide'])
+  lobby.disconnect('analyst')
+  assert.throws(
+    () =>
+      lobby.power(
+        'operator',
+        { type: 'breaker', breaker: 'anchor' },
+        'paused',
+        1,
+      ),
+    /reconnect/,
+  )
+  lobby.resume('analyst-returned', created.room.code, analystSession.token)
+  assert.throws(
+    () => lobby.power('operator', { type: 'reset' }, 'first', 0),
+    /different/,
+  )
+  assert.throws(
+    () => lobby.power('operator', { type: 'reset' }, 'stale', 0),
+    /changed/,
+  )
+  lobby.disconnect('operator')
+  const restored = lobby.resume(
+    'returned',
+    created.room.code,
+    created.session.token,
+  )
+  assert.deepEqual(restored.room.power?.activated, ['tide'])
+  assert.deepEqual(
+    lobby.power('returned', { type: 'breaker', breaker: 'tide' }, 'first', 0)
+      .power?.activated,
+    ['tide'],
+  )
+  lobby.power('returned', { type: 'breaker', breaker: 'anchor' }, 'second', 1)
+  const complete = lobby.power(
+    'returned',
+    { type: 'breaker', breaker: 'beacon' },
+    'third',
+    2,
+  )
+  assert.equal(complete.phase, 'power-complete')
+  assert.throws(
+    () => lobby.power('returned', { type: 'reset' }, 'late', 3),
+    /restored/,
+  )
+  lobby.leave('returned')
+  assert.equal(lobby.view(created.room.code, 'analyst').power, undefined)
 })

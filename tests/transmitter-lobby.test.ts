@@ -1,9 +1,10 @@
+import { restorePower } from './helpers/power.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { Lobby } from '../server/lobby.ts'
 
 function crew() {
-  const lobby = new Lobby()
+  const lobby = new Lobby(Date.now, false, () => 0)
   const equipment = lobby.create('equipment')
   const control = lobby.join('control', equipment.room.code)
   lobby.role('equipment', 'equipment')
@@ -15,15 +16,7 @@ function crew() {
 }
 
 function reachTransmitter(lobby: Lobby) {
-  for (const [version, breaker] of (
-    ['tide', 'anchor', 'beacon'] as const
-  ).entries())
-    lobby.power(
-      'equipment',
-      { type: 'breaker', breaker },
-      `power-${version}`,
-      version,
-    )
+  restorePower(lobby)
   lobby.continue('control')
   lobby.pressure(
     'control',

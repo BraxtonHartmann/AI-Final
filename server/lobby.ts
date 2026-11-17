@@ -13,14 +13,22 @@ import type {
   RoomView,
   Session,
 } from '../shared/protocol.ts'
-import { applyPowerAction, initialPower, powerView } from './power.ts'
 import {
+  applyPowerAction,
+  initialPower,
+  powerView,
+  completedPower,
+  nextPowerPath,
+} from './power.ts'
+import {
+  completedPressure,
   applyPressureAction,
   initialPressure,
   pressureView,
 } from './pressure.ts'
 
 import {
+  completedTransmitter,
   applyTransmitterAction,
   initialTransmitter,
   transmitterView,
@@ -61,9 +69,17 @@ export class Lobby {
   private rooms = new Map<string, Room>()
   private connections = new Map<string, string>()
   private now: () => number
+  private allowPuzzleSkip: boolean
+  private choosePowerPath: (previous: number) => number
 
-  constructor(now = Date.now) {
+  constructor(
+    now = Date.now,
+    allowPuzzleSkip = false,
+    choosePowerPath = nextPowerPath,
+  ) {
     this.now = now
+    this.allowPuzzleSkip = allowPuzzleSkip
+    this.choosePowerPath = choosePowerPath
   }
 
   private room(code: string) {
@@ -101,6 +117,7 @@ export class Lobby {
     return {
       code: room.code,
       runId: room.runId,
+      ...(this.allowPuzzleSkip ? { canSkip: true } : {}),
       revision: room.revision,
       phase: room.phase,
       players: room.players.map((player) => ({
@@ -179,7 +196,7 @@ export class Lobby {
       phase: 'lobby',
       players: [],
       updatedAt: this.now(),
-      power: initialPower(),
+      power: initialPower(this.choosePowerPath(-1)),
       pressure: initialPressure(),
       transmitter: initialTransmitter(),
       actions: new Map(),
@@ -267,6 +284,7 @@ export class Lobby {
       )
     }
     room.phase = 'power'
+    room.power = initialPower(this.choosePowerPath(room.power.path))
     this.resetPuzzles(room)
     this.changed(room)
     return this.view(room.code, socketId)
@@ -337,7 +355,7 @@ export class Lobby {
   }
 
   private resetPuzzles(room: Room) {
-    room.power = initialPower()
+    room.power = initialPower(room.power.path)
     room.pressure = initialPressure()
     room.transmitter = initialTransmitter()
     room.hatch = initialHatch()
@@ -400,6 +418,33 @@ export class Lobby {
       !room.players.every((entry) => entry.socketId)
     )
       throw new Error('Wait for your partner to reconnect.')
+    room.phase = target
+    this.changed(room)
+    return this.view(room.code, socketId)
+  }
+
+  skip(
+    socketId: string,
+    target: 'power' | 'pressure' | 'transmitter' | 'hatch',
+    runId?: string,
+  ) {
+    if (!this.allowPuzzleSkip)
+      throw new Error('Puzzle skipping is disabled on this server.')
+    const { room } = this.member(socketId)
+    this.checkRun(room, runId)
+    if (
+      room.players.length !== 2 ||
+      !room.players.every((player) => player.socketId && player.role)
+    )
+      throw new Error(
+        'Both players must be connected and have a role before skipping.',
+      )
+    this.returnToLobby(room)
+    room.power = initialPower(this.choosePowerPath(room.power.path))
+    const index = ['power', 'pressure', 'transmitter', 'hatch'].indexOf(target)
+    if (index > 0) room.power = completedPower(room.power.path)
+    if (index > 1) room.pressure = completedPressure()
+    if (index > 2) room.transmitter = completedTransmitter()
     room.phase = target
     this.changed(room)
     return this.view(room.code, socketId)

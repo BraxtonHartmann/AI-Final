@@ -9,10 +9,6 @@ interface Props {
   send: (request: Request) => Promise<void>
 }
 
-function breakerLabel(id: string) {
-  return breakers.find((breaker) => breaker.id === id)?.label ?? id
-}
-
 export function PowerPanel({ power, disabled, partnerConnected, send }: Props) {
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
@@ -28,7 +24,6 @@ export function PowerPanel({ power, disabled, partnerConnected, send }: Props) {
       expectedVersion: power.version,
     })
   }
-
   return (
     <div className="power-puzzle">
       <div className="puzzle-heading">
@@ -43,9 +38,18 @@ export function PowerPanel({ power, disabled, partnerConnected, send }: Props) {
             Restore the power.
           </h3>
         </div>
-        <span className={`power-indicator ${power.status}`}>
-          {restored ? 'Online' : tripped ? 'Tripped' : 'Offline'}
-        </span>
+        <div
+          className={`power-lamp ${power.status}`}
+          role="status"
+          aria-label={`Power lamp: ${restored ? 'green, power restored' : tripped ? 'red, circuit tripped' : 'red, awaiting sequence'}`}
+        >
+          <span aria-hidden="true" />
+          {restored
+            ? 'Power restored'
+            : tripped
+              ? 'Tripped'
+              : 'Awaiting sequence'}
+        </div>
       </div>
       {!partnerConnected && (
         <p className="notice" role="status">
@@ -53,24 +57,21 @@ export function PowerPanel({ power, disabled, partnerConnected, send }: Props) {
           you are here.
         </p>
       )}
-      <div
-        className={`power-status ${power.status}`}
-        role={tripped ? 'alert' : 'status'}
-      >
-        {restored
-          ? 'Power restored. The airlock systems are back online.'
-          : tripped
-            ? 'Circuit tripped. Reset the panel and check the sequence with your partner.'
-            : `${power.activated.length} of 3 circuits energized. ${power.activated.length ? 'Keep following the wiring sequence.' : 'Waiting for the first breaker.'}`}
-      </div>
+      {tripped && (
+        <p className="error" role="alert">
+          Circuit tripped. Reset the panel and follow both procedures from the
+          beginning.
+        </p>
+      )}
       <div className="puzzle-workspace">
         {power.role === 'equipment' ? (
           <>
             <div className="panel-instructions">
               <h4>Breaker panel</h4>
               <p>
-                Your partner has the wiring diagram. Describe the symbols and
-                follow their instructions. Leave each energized breaker on.
+                Your partner has the procedures. Raise and lower switches as
+                directed. The lamp turns green when the complete sequence is
+                correct.
               </p>
             </div>
             <div
@@ -84,13 +85,10 @@ export function PowerPanel({ power, disabled, partnerConnected, send }: Props) {
                   <button
                     key={breaker.id}
                     className={`breaker-switch ${on ? 'energized' : ''}`}
-                    aria-label={`${breaker.label} breaker`}
+                    aria-label={`${breaker.label} switch`}
                     aria-pressed={on}
                     disabled={
-                      disabled ||
-                      !partnerConnected ||
-                      power.status !== 'active' ||
-                      on
+                      disabled || !partnerConnected || power.status !== 'active'
                     }
                     onClick={() =>
                       act({ type: 'breaker', breaker: breaker.id })
@@ -99,13 +97,10 @@ export function PowerPanel({ power, disabled, partnerConnected, send }: Props) {
                     <span className="breaker-symbol" aria-hidden="true">
                       {breaker.symbol}
                     </span>
-                    <strong>{breaker.label}</strong>
                     <span className="switch-track" aria-hidden="true">
                       <span />
                     </span>
-                    <span className="switch-status">
-                      {on ? (tripped ? 'Tripped' : 'Energized') : 'Off'}
-                    </span>
+                    <span className="switch-status">{on ? 'On' : 'Off'}</span>
                   </button>
                 )
               })}
@@ -121,43 +116,57 @@ export function PowerPanel({ power, disabled, partnerConnected, send }: Props) {
         ) : (
           <>
             <div className="panel-instructions">
-              <h4>Wiring diagram</h4>
+              <h4>Power procedures</h4>
               <p>
-                Your partner can operate the breakers. Talk them through the
-                feed path, starting at the auxiliary supply.
+                Start with every switch down. Read both blocks in order. Raise
+                means on, lower means off. Follow repeated symbols each time
+                they appear.
               </p>
             </div>
-            <div className="wiring-manual">
-              <p className="eyebrow">Auxiliary supply → airlock bus</p>
-              <ol className="wiring-path" aria-label="Safe activation order">
-                {power.sequence.map((id) => {
-                  const breaker = breakers.find((entry) => entry.id === id)!
-                  return (
-                    <li key={id}>
-                      <span className="diagram-symbol" aria-hidden="true">
-                        {breaker.symbol}
-                      </span>
-                      <strong>{breaker.label}</strong>
-                      <span>
-                        {power.activated.includes(id) && !tripped
-                          ? 'Energized'
-                          : 'Awaiting power'}
-                      </span>
-                    </li>
-                  )
-                })}
-              </ol>
-              <p className="manual-rule">
-                Energize one breaker at a time in the direction of the feed. An
-                incorrect step trips the safety relay. Ask the operator to reset
-                before another attempt.
-              </p>
-              <p className="damage-warning">
-                <strong>Damaged circuit — {breakerLabel(power.damaged)}</strong>
-                <br />
-                Keep this breaker off. It is isolated from the safe feed path.
-              </p>
+            <div
+              className="power-procedures"
+              aria-label="Power instruction blocks"
+            >
+              {power.instructions.map((block) => (
+                <section
+                  className="instruction-block"
+                  key={block.title}
+                  aria-label={block.title}
+                >
+                  <div className="instruction-heading">
+                    <h5>{block.title}</h5>
+                    <span
+                      className={`instruction-lamp ${block.complete ? 'complete' : ''}`}
+                      role="status"
+                      aria-label={`${block.title}: ${block.complete ? 'complete' : 'pending'}`}
+                      title={block.complete ? 'Complete' : 'Pending'}
+                    >
+                      {block.complete ? '✓' : ''}
+                    </span>
+                  </div>
+                  <p>
+                    {block.steps.map((step, index) => {
+                      const breaker = breakers.find(
+                        (entry) => entry.id === step.breaker,
+                      )!
+                      return (
+                        <span key={index} className="instruction-step">
+                          {step.on ? 'Raise' : 'Lower'}{' '}
+                          <span role="img" aria-label={breaker.label}>
+                            {breaker.symbol}
+                          </span>
+                          {index === block.steps.length - 1 ? '.' : ','}{' '}
+                        </span>
+                      )
+                    })}
+                  </p>
+                </section>
+              ))}
             </div>
+            <p className="muted">
+              An incorrect move trips the circuit. Ask your partner to reset and
+              restart both blocks. Watch for the green lamp at completion.
+            </p>
           </>
         )}
       </div>

@@ -146,6 +146,15 @@ function parseActionRequest(value: unknown): Request {
       )
         return { type: 'continue', target: data.target }
       break
+    case 'skip':
+      if (
+        data.target === 'power' ||
+        data.target === 'pressure' ||
+        data.target === 'transmitter' ||
+        data.target === 'hatch'
+      )
+        return { type: 'skip', target: data.target }
+      break
     case 'replay':
       if (typeof data.ready === 'boolean' && typeof data.runId === 'string')
         return { type: 'replay', ready: data.ready, runId: data.runId }
@@ -185,6 +194,7 @@ function parseRequest(value: unknown): Request {
   if (
     'actionId' in request ||
     request.type === 'continue' ||
+    request.type === 'skip' ||
     request.type === 'replay'
   ) {
     const runId = (value as Record<string, unknown>).runId
@@ -198,7 +208,12 @@ function parseRequest(value: unknown): Request {
   return request
 }
 
-export function createLobbyServer() {
+export function createLobbyServer(
+  options: {
+    allowPuzzleSkip?: boolean
+    choosePowerPath?: (previous: number) => number
+  } = {},
+) {
   const http = createServer((request, response) => {
     response.writeHead(request.url === '/health' ? 200 : 404, {
       'Content-Type': 'application/json',
@@ -223,7 +238,11 @@ export function createLobbyServer() {
       )
     },
   })
-  const lobby = new Lobby()
+  const lobby = new Lobby(
+    Date.now,
+    options.allowPuzzleSkip ?? false,
+    options.choosePowerPath,
+  )
   const budgets = new Map<string, { count: number; since: number }>()
 
   function publish() {
@@ -246,21 +265,36 @@ export function createLobbyServer() {
   }, 10_000)
   timer.unref()
 
+  function limitRequests(key: string, message: string) {
+    let budget = budgets.get(key)
+    if (!budget || Date.now() - budget.since >= 60_000) {
+      budget = { count: 0, since: Date.now() }
+      budgets.set(key, budget)
+    }
+    budget.count += 1
+    if (budget.count > 120) throw new Error(message)
+  }
+
   io.on('connection', (socket) => {
     socket.on('request', (raw, acknowledge) => {
       if (typeof acknowledge !== 'function') return
       let reply: Reply
       try {
-        const address = socket.handshake.address
-        let budget = budgets.get(address)
-        if (!budget || Date.now() - budget.since >= 60_000) {
-          budget = { count: 0, since: Date.now() }
-          budgets.set(address, budget)
-        }
-        budget.count += 1
-        if (budget.count > 120)
-          throw new Error('Too many requests. Wait a minute and try again.')
+        limitRequests(
+          `socket:${socket.id}`,
+          'Too many requests. Wait a minute and try again.',
+        )
         const request = parseRequest(raw)
+        if (
+          request.type === 'create' ||
+          request.type === 'join' ||
+          request.type === 'resume'
+        ) {
+          limitRequests(
+            `entry:${socket.handshake.address}`,
+            'Too many room-entry requests. Wait a minute and try again.',
+          )
+        }
         sweep()
         switch (request.type) {
           case 'create':
@@ -291,6 +325,12 @@ export function createLobbyServer() {
             reply = {
               ok: true,
               room: lobby.continue(socket.id, request.target, request.runId),
+            }
+            break
+          case 'skip':
+            reply = {
+              ok: true,
+              room: lobby.skip(socket.id, request.target, request.runId),
             }
             break
           case 'replay':
@@ -365,6 +405,7 @@ export function createLobbyServer() {
       publish()
     })
     socket.on('disconnect', () => {
+      budgets.delete(`socket:${socket.id}`)
       lobby.disconnect(socket.id)
       publish()
     })

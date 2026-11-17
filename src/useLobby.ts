@@ -138,7 +138,9 @@ export function useLobby() {
     setError('')
     try {
       const outgoing =
-        'actionId' in request || request.type === 'continue'
+        'actionId' in request ||
+        request.type === 'continue' ||
+        request.type === 'skip'
           ? { ...request, runId: room?.runId }
           : request
       const reply: Reply = await socket

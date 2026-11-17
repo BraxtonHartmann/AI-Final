@@ -1,9 +1,10 @@
+import { powerProcedure } from './helpers/power.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { Lobby } from '../server/lobby.ts'
 
 test('room capacity, role ownership, readiness, and start gates', () => {
-  const lobby = new Lobby()
+  const lobby = new Lobby(Date.now, false, () => 0)
   const first = lobby.create('one')
   const second = lobby.join('two', first.session.code)
   assert.throws(() => lobby.join('three', first.session.code), /full/)
@@ -20,7 +21,7 @@ test('room capacity, role ownership, readiness, and start gates', () => {
 })
 
 test('private credentials restore a seat and disconnect resets readiness', () => {
-  const lobby = new Lobby()
+  const lobby = new Lobby(Date.now, false, () => 0)
   const first = lobby.create('one')
   lobby.join('two', first.session.code)
   lobby.role('one', 'equipment')
@@ -48,7 +49,7 @@ test('private credentials restore a seat and disconnect resets readiness', () =>
 })
 
 test('role changes invalidate readiness and rooms remain isolated', () => {
-  const lobby = new Lobby()
+  const lobby = new Lobby(Date.now, false, () => 0)
   const a = lobby.create('a')
   const b = lobby.create('b')
   lobby.role('a', 'equipment')
@@ -79,7 +80,7 @@ test('expired seats free capacity and inactive rooms expire', () => {
 })
 
 test('puzzle views protect instructions, authorize moves, and deduplicate across reconnect', () => {
-  const lobby = new Lobby()
+  const lobby = new Lobby(Date.now, false, () => 0)
   const created = lobby.create('operator')
   const analystSession = lobby.join('analyst', created.room.code).session
   lobby.role('operator', 'equipment')
@@ -93,12 +94,17 @@ test('puzzle views protect instructions, authorize moves, and deduplicate across
   const started = lobby.start('operator')
   assert.ok(
     started.power &&
-      !('sequence' in started.power) &&
+      !('instructions' in started.power) &&
       !('damaged' in started.power),
   )
   const analyst = lobby.view(created.room.code, 'analyst').power
   assert.ok(analyst?.role === 'control')
-  assert.deepEqual(analyst.sequence, ['tide', 'anchor', 'beacon'])
+  assert.deepEqual(
+    analyst.instructions.flatMap((block) =>
+      block.steps.map((step) => step.breaker),
+    ),
+    powerProcedure,
+  )
   assert.equal(lobby.view(created.room.code).power, undefined)
   assert.throws(
     () => lobby.power('analyst', { type: 'reset' }, 'denied', 0),
@@ -106,18 +112,18 @@ test('puzzle views protect instructions, authorize moves, and deduplicate across
   )
   const first = lobby.power(
     'operator',
-    { type: 'breaker', breaker: 'tide' },
+    { type: 'breaker', breaker: 'beacon' },
     'first',
     0,
   )
   const repeated = lobby.power(
     'operator',
-    { type: 'breaker', breaker: 'tide' },
+    { type: 'breaker', breaker: 'beacon' },
     'first',
     0,
   )
   assert.equal(first.revision, repeated.revision)
-  assert.deepEqual(repeated.power?.activated, ['tide'])
+  assert.deepEqual(repeated.power?.activated, ['beacon'])
   lobby.disconnect('analyst')
   assert.throws(
     () =>
@@ -144,22 +150,26 @@ test('puzzle views protect instructions, authorize moves, and deduplicate across
     created.room.code,
     created.session.token,
   )
-  assert.deepEqual(restored.room.power?.activated, ['tide'])
+  assert.deepEqual(restored.room.power?.activated, ['beacon'])
   assert.deepEqual(
-    lobby.power('returned', { type: 'breaker', breaker: 'tide' }, 'first', 0)
+    lobby.power('returned', { type: 'breaker', breaker: 'beacon' }, 'first', 0)
       .power?.activated,
-    ['tide'],
+    ['beacon'],
   )
-  lobby.power('returned', { type: 'breaker', breaker: 'anchor' }, 'second', 1)
-  const complete = lobby.power(
-    'returned',
-    { type: 'breaker', breaker: 'beacon' },
-    'third',
-    2,
-  )
+  for (const [index, breaker] of powerProcedure.entries()) {
+    if (index > 0)
+      lobby.power(
+        'returned',
+        { type: 'breaker', breaker },
+        `remaining-${index}`,
+        index,
+      )
+  }
+  const complete = lobby.view(created.room.code, 'returned')
   assert.equal(complete.phase, 'power-complete')
   assert.throws(
-    () => lobby.power('returned', { type: 'reset' }, 'late', 3),
+    () =>
+      lobby.power('returned', { type: 'reset' }, 'late', powerProcedure.length),
     /restored/,
   )
   lobby.leave('returned')

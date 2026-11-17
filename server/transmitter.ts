@@ -72,3 +72,13 @@ export function transmitterView(
     })),
   }
 }
+
+export function completedTransmitter(): TransmitterState {
+  return applyTransmitterAction(
+    applyTransmitterAction(initialTransmitter(), {
+      type: 'tune',
+      settings: rescue,
+    }),
+    { type: 'transmit' },
+  )
+}

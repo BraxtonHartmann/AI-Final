@@ -1,3 +1,4 @@
+import { powerProcedure } from './helpers/power.ts'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import { test } from 'node:test'
@@ -12,7 +13,7 @@ import type {
 import { createLobbyServer } from '../server/server.ts'
 
 test('real clients handle role races, room isolation, reconnect, and invalid requests', async (t) => {
-  const server = createLobbyServer()
+  const server = createLobbyServer({ choosePowerPath: () => 0 })
   server.http.listen(0, '127.0.0.1')
   await once(server.http, 'listening')
   const address = server.http.address()
@@ -48,6 +49,8 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
   ])
   const created = await send(a, { type: 'create' })
   assert.ok(created.ok && created.session)
+  assert.equal(created.room?.canSkip, undefined)
+  assert.equal((await send(a, { type: 'skip', target: 'hatch' })).ok, false)
   const session = created.session
   assert.equal((await send(b, { type: 'join', code: session.code })).ok, true)
   assert.equal((await send(c, { type: 'join', code: session.code })).ok, false)
@@ -67,17 +70,19 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
   const operatorView = await send(winner, { type: 'start' })
   const analystView = await send(loser, { type: 'start' })
   assert.ok(operatorView.ok && operatorView.room?.power?.role === 'equipment')
-  assert.equal('sequence' in operatorView.room.power, false)
+  assert.equal('instructions' in operatorView.room.power, false)
   assert.equal('damaged' in operatorView.room.power, false)
   assert.ok(analystView.ok && analystView.room?.power?.role === 'control')
-  assert.deepEqual(analystView.room.power.sequence, [
-    'tide',
-    'anchor',
-    'beacon',
-  ])
+  assert.deepEqual(
+    analystView.room.power.instructions.flatMap((block) =>
+      block.steps.map((step) => step.breaker),
+    ),
+    powerProcedure,
+  )
+
   const action: Request = {
     type: 'power',
-    action: { type: 'breaker', breaker: 'tide' },
+    action: { type: 'breaker', breaker: 'beacon' },
     actionId: 'network-first',
     expectedVersion: 0,
   }
@@ -98,7 +103,10 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
   assert.ok(broadcasts.length > 0)
   assert.ok(
     broadcasts.every(
-      (value) => !value.includes('sequence') && !value.includes('damaged'),
+      (value) =>
+        !value.includes('instructions') &&
+        !value.includes('progress') &&
+        !value.includes('damaged'),
     ),
   )
   const isolated = await send(other, { type: 'create' })
@@ -133,18 +141,15 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
   assert.ok(seenCodes.every((code) => code === isolated.room?.code))
   const equipment = winner === a ? reconnected : winner
   const control = loser === a ? reconnected : loser
-  await send(equipment, {
-    type: 'power',
-    action: { type: 'breaker', breaker: 'anchor' },
-    actionId: 'next-power',
-    expectedVersion: 1,
-  })
-  await send(equipment, {
-    type: 'power',
-    action: { type: 'breaker', breaker: 'beacon' },
-    actionId: 'last-power',
-    expectedVersion: 2,
-  })
+  for (const [index, breaker] of powerProcedure.entries()) {
+    if (index > 0)
+      await send(equipment, {
+        type: 'power',
+        action: { type: 'breaker', breaker },
+        actionId: `remaining-${index}`,
+        expectedVersion: index,
+      })
+  }
   const controls = await send(control, { type: 'continue' })
   assert.ok(controls.ok && controls.room?.pressure?.role === 'control')
   assert.equal('readings' in controls.room.pressure, false)
@@ -399,7 +404,7 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
     (
       await send(equipment, {
         type: 'power',
-        action: { type: 'breaker', breaker: 'tide' },
+        action: { type: 'breaker', breaker: 'beacon' },
         actionId: 'old-run',
         expectedVersion: 0,
         runId,
@@ -411,7 +416,7 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
     (
       await send(equipment, {
         type: 'power',
-        action: { type: 'breaker', breaker: 'tide' },
+        action: { type: 'breaker', breaker: 'beacon' },
         actionId: 'legacy-run',
         expectedVersion: 0,
       })
@@ -420,7 +425,7 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
   )
   const newMove = await send(equipment, {
     type: 'power',
-    action: { type: 'breaker', breaker: 'tide' },
+    action: { type: 'breaker', breaker: 'beacon' },
     actionId: 'new-run',
     expectedVersion: 0,
     runId: restarted.room.runId,

@@ -1,3 +1,4 @@
+import { solvePower } from './powerProcedure'
 import { expect, test } from '@playwright/test'
 
 test('crew swaps controls, balances pressure, and drains the airlock with recovery', async ({
@@ -21,8 +22,7 @@ test('crew swaps controls, balances pressure, and drains the airlock with recove
     await equipment.getByRole('button', { name: 'Ready up' }).click()
     await control.getByRole('button', { name: 'Ready up' }).click()
     await equipment.getByRole('button', { name: 'Enter station' }).click()
-    for (const name of ['Tide', 'Anchor', 'Beacon'])
-      await equipment.getByRole('button', { name: `${name} breaker` }).click()
+    await solvePower(equipment, control)
     await control.getByRole('button', { name: 'Continue to airlock' }).click()
     await expect(
       control.getByRole('heading', { name: 'Valve controls' }),

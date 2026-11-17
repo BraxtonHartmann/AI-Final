@@ -168,6 +168,50 @@ For future entries, include date, exact prompt or transcript reference, agent/to
 - Publication scope — Hatch, escape/replay, tests, and project records. The three previously identified duplicate-named source files remain outside this commit.
 - Commit message — feat: complete hatch escape and replay [AI-assisted].
 
+## 012 — Expand power, add testing skips, and reader completion lamps
+
+- Date — November 17, 2026.
+- User prompt — “lets remove the names, add more switches, keep both instructions blocks only for the analyst. i almost dont want there to be a visual check circut. i want them to have a light or something that turns green once it is done correctly. small thing i want the leave room link to sit under the station connected indicator”
+- Additional user prompt — “for sake of testing can we have a skip to puzzle button so i don't have to do them all each time i need to test a puzzle”
+- Additional user prompt — “can we add a little circle light for the Auxiliary startup and arilock transfer on the reader side that turns green once they have completed the sequence”
+- Agent/tools — Codex, terminal tools, TypeScript, Socket.IO, Playwright Chromium, cached Prettier, and local screenshot inspection. Exact model identifier was not recorded. No subagents were used.
+- Context — Read AGENTS.md, current power rules/UI, shared messages, room/session logic, existing tests, and specification. Continued all three requests as one implementation task.
+- Power design — Expanded to eight visible symbols and twelve ordered toggles across Auxiliary startup and Airlock transfer. The selected first-version procedure raises triangle and waves, lowers triangle, raises circle and perpendicular, lowers waves, raises diamond, lowers circle, raises triangle, lowers perpendicular, raises square, then raises waves. Lightning and star are distractors. Exact sequence checking and reset-on-error were selected as the feedback policy. The overall lamp turns green automatically at completion, with no check button. Visible switch names were removed and descriptive accessible names retained for screen readers.
+- Reader feedback — Both instruction blocks are private to Control. Each has a small circle lamp with a completion check mark and accessible status. The first lights at six correct actions and the second at twelve. Trip/reset clears both. The internal progress index remains server-only, and Equipment receives only positions, status, and version.
+- Interface — Moved Leave room directly beneath the connection indicator in the header for all room phases.
+- Testing tools — Added a server-gated Skip to puzzle selector in local npm development sessions. Both players need connected seats and assigned roles. Either player can move the pair to any of the four puzzles. A jump resets the run identifier and prepares prerequisite systems through existing rule functions. The default server factory and production startup disable skipping. Normal sequential progression remains available.
+- Test-driven evidence — Updated power rule/privacy tests before implementation. They initially failed on the old three-action procedure, four-switch count, and missing instruction blocks. Added the reader-lamp boundary test before adding completion fields; its initial failure showed undefined flags. Both groups passed after implementation. Reused an independent expected procedure in tests and updated later-puzzle fixtures to traverse the revised power flow.
+- Detected issue and remediation — The first expanded browser-suite run hit the existing shared-address 120-request limit and blocked room creation in the final transmitter test. The test snapshot showed Too many requests. Replaced the all-actions address bucket with a 120-per-minute connection action bucket plus a separate 120-per-minute shared-address room-entry bucket. Added a real-socket regression verifying one connection is throttled while another room can act, and room-entry attempts still share the address cap. All seven browser tests then passed.
+- AI-run verification — Thirty rule/transport tests passed, including the new block lamps, skip gate, every skip target, rate-limit isolation, and the full prior session/puzzle coverage. All seven Chromium browser tests passed after the rate-limit change. The final power/skip browser checks passed again after adding the requested reader lamps, including on/off loops, reset/trip feedback, refresh recovery, header placement, reader-lamp boundaries, mobile overflow, and shared puzzle skipping. Build, lint, and Git whitespace checks passed.
+- Visual verification — Captured the expanded operator panel, reader completion lamps, header action, and testing selector at desktop and mobile sizes in temporary files outside the repository and visually inspected.
+- Human verification — Pending project-owner playtesting and review of the revised power and testing tools. Firefox, Safari, screen-reader review, and the full accessibility/security audits remain pending.
+- Commit — Changes saved locally, pending review and commit. No new publication was requested for this implementation task.
+
+## 013 — Red incomplete lamps and randomized power paths
+
+- Date — November 17, 2026.
+- User prompt — “looking good, lets make a small tweak and make the indicator light red when not complete then turn green when it is good. we should also add some randomization (or at least a handful of different instruction paths) so each playthrough is different”
+- Agent/tools — Codex, terminal tools, Node.js crypto randomInt, TypeScript, Playwright Chromium, cached Prettier, and screenshot inspection. Exact model identifier was not recorded. No subagents were used.
+- Context — Read the power rules, block-lamp rendering/styles, room start/reset/replay/skip lifecycle, and tests. Preserved the two-block twelve-toggle structure and existing role split.
+- Changes — Incomplete reader lamps and the overall unfinished power lamp are red, and completed lamps are green. Added six valid symbol-mapped power paths selected with server-side randomness. Starting a new run or using testing skip selects a path different from the preceding run. A trip, reset, or reconnect preserves the current path. The chosen path and internal progress remain private to the server, while only the analyst receives the selected instructions.
+- Design choice — Used six prevalidated symbol mappings of the existing twelve-action on/off structure. This varies the symbols, sequence, distractors, and resulting switch positions while preserving comparable difficulty. New rounds avoid an immediate repeat, and older paths may recur in later rounds.
+- Test-driven evidence — Added a six-path solvability/reset/privacy test before implementation. It initially failed because the original state had no path identity. Added coverage for excluding the preceding path and preserving the selected path on reset. Existing browser coverage also verifies refresh retains the analyst's procedure.
+- Test maintenance — Kept existing rule/transport fixtures deterministic through an internal injectable path selector. Browser playthroughs now read the analyst's displayed symbols and operate the corresponding switches, exercising actual randomized rooms. A text-based migration missed a Prettier-formatted test section and was corrected directly before verification.
+- AI-run verification — Thirty-three rule/transport tests and all seven Chromium browser tests passed. Verified all six paths are distinct and solvable, on/off transitions remain valid, reset keeps the path, new testing runs differ, solution identity stays private, and normal four-puzzle/replay flows work. Build, lint, and Git whitespace checks passed.
+- Visual verification — Checked consecutive development runs select distinct instructions and captured red pending/green completed reader lamps at desktop and mobile sizes in temporary files outside the repository and visually inspected.
+- Human verification — Pending project-owner playtesting and code review. Broader accessibility/security and browser audits remain capstone work.
+- Commit — Changes saved locally, pending review and commit. The prior power/testing changes also remain uncommitted.
+
+## 014 — Publish power revisions and discuss pressure difficulty
+
+- Date — November 17, 2026.
+- User prompt — “That looks good, lets commit and push these changes and start making the pressure puzzle more difficult. lets walk through some ideas before we do anything though”
+- Agent/tools — Codex and terminal Git tools.
+- Scope — Publish the verified power, reader-lamp, testing-skip, header, and related validation changes. Discuss pressure ideas before implementation.
+- Verification — Entries 012–013 record the completed tests, build, lint, and visual checks. Git whitespace checks passed at publication. Reviewed current pressure rules to ground the design discussion.
+- Publication scope — Tracked project changes and the new testing helpers/regressions. The three previously identified duplicate-named source files remain outside the commit.
+- Commit message — feat: expand and randomize power puzzle with testing tools [AI-assisted].
+
 ## Future entry template
 
 ```text

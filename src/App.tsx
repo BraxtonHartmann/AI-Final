@@ -25,6 +25,9 @@ const roles: { id: Role; title: string; description: string }[] = [
 
 function App() {
   const { room, session, connected, busy, error, send } = useLobby()
+  const [skipTarget, setSkipTarget] = useState<
+    'power' | 'pressure' | 'transmitter' | 'hatch'
+  >('power')
   const [code, setCode] = useState('')
   const player = room?.players.find((entry) => entry.id === session?.playerId)
   const canStart =
@@ -38,13 +41,24 @@ function App() {
         <a className="wordmark" href="/" aria-label="Below the Surface home">
           BELOW <span>THE SURFACE</span>
         </a>
-        <span
-          className={`connection ${connected ? 'online' : ''}`}
-          role="status"
-        >
-          <span aria-hidden="true" />
-          {connected ? 'Station connected' : 'Connecting to station…'}
-        </span>
+        <div className="station-status">
+          <span
+            className={`connection ${connected ? 'online' : ''}`}
+            role="status"
+          >
+            <span aria-hidden="true" />
+            {connected ? 'Station connected' : 'Connecting to station…'}
+          </span>
+          {room && (
+            <button
+              className="text-button"
+              disabled={disabled}
+              onClick={() => void send({ type: 'leave' })}
+            >
+              Leave room
+            </button>
+          )}
+        </div>
       </header>
       <main className={room && room.phase !== 'lobby' ? 'game-main' : ''}>
         <section className="mission-intro" aria-labelledby="mission-title">
@@ -150,6 +164,49 @@ function App() {
                   {room.players.length} / 2 crew
                 </span>
               </div>
+              {room.canSkip && (
+                <form
+                  className="testing-tools"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void send({ type: 'skip', target: skipTarget })
+                  }}
+                >
+                  <label htmlFor="skip-target">
+                    Testing tools · skip to puzzle
+                  </label>
+                  <div className="join-row">
+                    <select
+                      id="skip-target"
+                      value={skipTarget}
+                      onChange={(event) =>
+                        setSkipTarget(event.target.value as typeof skipTarget)
+                      }
+                    >
+                      <option value="power">Power</option>
+                      <option value="pressure">Pressure</option>
+                      <option value="transmitter">Transmitter</option>
+                      <option value="hatch">Hatch</option>
+                    </select>
+                    <button
+                      className="secondary"
+                      disabled={
+                        disabled ||
+                        room.players.length !== 2 ||
+                        !room.players.every(
+                          (entry) => entry.connected && entry.role,
+                        )
+                      }
+                    >
+                      Skip to puzzle
+                    </button>
+                  </div>
+                  <p className="field-help">
+                    Moves both players and resets the run. Both players need a
+                    connected seat and a role.
+                  </p>
+                </form>
+              )}
               {room.phase === 'lobby' ? (
                 <>
                   <p className="muted">
@@ -298,13 +355,6 @@ function App() {
                   send={send}
                 />
               )}
-              <button
-                className="text-button"
-                disabled={disabled}
-                onClick={() => void send({ type: 'leave' })}
-              >
-                Leave room
-              </button>
             </>
           )}
         </section>

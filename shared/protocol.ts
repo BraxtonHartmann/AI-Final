@@ -78,10 +78,14 @@ export type PressureView = {
 )
 
 export const breakers = [
-  { id: 'beacon', label: 'Beacon', symbol: '△' },
-  { id: 'coil', label: 'Coil', symbol: 'ϟ' },
-  { id: 'tide', label: 'Tide', symbol: '≈' },
-  { id: 'anchor', label: 'Anchor', symbol: '⊥' },
+  { id: 'beacon', label: 'Triangle', symbol: '△' },
+  { id: 'coil', label: 'Lightning', symbol: 'ϟ' },
+  { id: 'tide', label: 'Waves', symbol: '≈' },
+  { id: 'anchor', label: 'Perpendicular', symbol: '⊥' },
+  { id: 'ring', label: 'Circle', symbol: '○' },
+  { id: 'diamond', label: 'Diamond', symbol: '◇' },
+  { id: 'square', label: 'Square', symbol: '□' },
+  { id: 'star', label: 'Star', symbol: '✳' },
 ] as const
 export type BreakerId = (typeof breakers)[number]['id']
 export type PowerAction =
@@ -89,12 +93,21 @@ export type PowerAction =
 export interface PowerState {
   status: 'active' | 'tripped' | 'restored'
   activated: BreakerId[]
+  progress: number
+  path: number
   version: number
 }
-export type PowerView = PowerState &
+export interface PowerInstruction {
+  title: string
+  steps: { breaker: BreakerId; on: boolean }[]
+}
+export type PowerView = Pick<PowerState, 'status' | 'activated' | 'version'> &
   (
     | { role: 'equipment' }
-    | { role: 'control'; sequence: BreakerId[]; damaged: BreakerId }
+    | {
+        role: 'control'
+        instructions: (PowerInstruction & { complete: boolean })[]
+      }
   )
 
 export interface PlayerView {
@@ -107,6 +120,7 @@ export interface PlayerView {
 export interface RoomView {
   code: string
   runId: string
+  canSkip?: boolean
   revision: number
   phase:
     | 'lobby'
@@ -137,6 +151,11 @@ export type Request =
   | {
       type: 'continue'
       target?: 'pressure' | 'transmitter' | 'hatch'
+      runId?: string
+    }
+  | {
+      type: 'skip'
+      target: 'power' | 'pressure' | 'transmitter' | 'hatch'
       runId?: string
     }
   | { type: 'replay'; ready: boolean; runId: string }

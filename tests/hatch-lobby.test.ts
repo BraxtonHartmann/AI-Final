@@ -1,9 +1,10 @@
+import { restorePower } from './helpers/power.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { Lobby } from '../server/lobby.ts'
 
 function crew() {
-  const lobby = new Lobby()
+  const lobby = new Lobby(Date.now, false, () => 0)
   const equipment = lobby.create('equipment')
   const control = lobby.join('control', equipment.room.code)
   lobby.role('equipment', 'equipment')
@@ -15,15 +16,7 @@ function crew() {
 }
 
 function reachHatch(lobby: Lobby) {
-  for (const [version, breaker] of (
-    ['tide', 'anchor', 'beacon'] as const
-  ).entries())
-    lobby.power(
-      'equipment',
-      { type: 'breaker', breaker },
-      `power-${version}`,
-      version,
-    )
+  restorePower(lobby)
   lobby.continue('control')
   lobby.pressure(
     'control',
@@ -197,7 +190,7 @@ test('replay requires both votes, permits cancellation, and isolates the new run
     () =>
       lobby.power(
         'equipment-returned',
-        { type: 'breaker', breaker: 'tide' },
+        { type: 'breaker', breaker: 'beacon' },
         'old-late',
         0,
         runId,
@@ -208,7 +201,7 @@ test('replay requires both votes, permits cancellation, and isolates the new run
     () =>
       lobby.power(
         'equipment-returned',
-        { type: 'breaker', breaker: 'tide' },
+        { type: 'breaker', breaker: 'beacon' },
         'legacy-late',
         0,
       ),
@@ -217,7 +210,7 @@ test('replay requires both votes, permits cancellation, and isolates the new run
   assert.equal(
     lobby.power(
       'equipment-returned',
-      { type: 'breaker', breaker: 'tide' },
+      { type: 'breaker', breaker: 'beacon' },
       'new',
       0,
       restarted.runId,
@@ -245,7 +238,7 @@ test('returning to the lobby after a player leaves also invalidates the ended ru
     () =>
       lobby.power(
         'equipment',
-        { type: 'breaker', breaker: 'tide' },
+        { type: 'breaker', breaker: 'beacon' },
         'old',
         0,
         oldRunId,
@@ -255,7 +248,7 @@ test('returning to the lobby after a player leaves also invalidates the ended ru
   assert.equal(
     lobby.power(
       'equipment',
-      { type: 'breaker', breaker: 'tide' },
+      { type: 'breaker', breaker: 'beacon' },
       'current',
       0,
       nextRunId,

@@ -1,3 +1,4 @@
+import { solvePower, readPowerProcedure } from './powerProcedure'
 import { expect, test } from '@playwright/test'
 
 test('crew completes all four systems, re-arms after refresh, escapes, and agrees to replay', async ({
@@ -22,8 +23,7 @@ test('crew completes all four systems, re-arms after refresh, escapes, and agree
     await equipment.getByRole('button', { name: 'Ready up' }).click()
     await control.getByRole('button', { name: 'Ready up' }).click()
     await equipment.getByRole('button', { name: 'Enter station' }).click()
-    for (const name of ['Tide', 'Anchor', 'Beacon'])
-      await equipment.getByRole('button', { name: `${name} breaker` }).click()
+    await solvePower(equipment, control)
     await control.getByRole('button', { name: 'Continue to airlock' }).click()
     await control.getByRole('button', { name: 'Intake valve' }).click()
     await control.getByRole('button', { name: 'Bypass valve' }).click()
@@ -146,9 +146,12 @@ test('crew completes all four systems, re-arms after refresh, escapes, and agree
     await equipment.getByRole('button', { name: 'Ready up' }).click()
     await control.getByRole('button', { name: 'Ready up' }).click()
     await control.getByRole('button', { name: 'Enter station' }).click()
-    await equipment.getByRole('button', { name: 'Tide breaker' }).click()
+    const [firstSymbol] = await readPowerProcedure(control)
+    await equipment
+      .getByRole('button', { name: `${firstSymbol} switch`, exact: true })
+      .click()
     await expect(
-      equipment.getByRole('button', { name: 'Tide breaker' }),
+      equipment.getByRole('button', { name: `${firstSymbol} switch` }),
     ).toHaveAttribute('aria-pressed', 'true')
     expect(errors).toEqual([])
   } finally {

@@ -68,3 +68,18 @@ export function pressureView(state: PressureState, role: Role): PressureView {
     safeRange: [...safeRange],
   }
 }
+
+export function completedPressure(): PressureState {
+  let state = initialPressure()
+  state = applyPressureAction(state, {
+    type: 'valve',
+    valve: 'intake',
+    open: true,
+  })
+  state = applyPressureAction(state, {
+    type: 'valve',
+    valve: 'bypass',
+    open: true,
+  })
+  return applyPressureAction(state, { type: 'pump' })
+}

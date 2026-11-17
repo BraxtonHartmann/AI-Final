@@ -4,7 +4,7 @@
 
 Build a two-player browser escape room for the CS 3810 Applied Generative AI capstone, primarily under Track A, Web Design & Interactive Applications. Players receive different information and must communicate to escape a submerged research station.
 
-This is the initial specification, dated November 16, 2026. The browser platform, co-op concept, and React stack were discussed with the project owner. The underwater setting, puzzle rules, recovery policy, and scope below are working proposals to review during development. The current build includes the two-player lobby and all four initial puzzles, a shared escape outcome, and two-player replay. Broader validation and capstone packaging remain pending. The project owner expanded the plan to four puzzles so each player operates two systems. Difficulty increases are deferred until the complete initial flow is playable.
+This is the initial specification, dated November 16, 2026. The browser platform, co-op concept, and React stack were discussed with the project owner. The underwater setting, puzzle rules, recovery policy, and scope below are working proposals to review during development. The current build includes the two-player lobby and all four initial puzzles, a shared escape outcome, and two-player replay. Broader validation and capstone packaging remain pending. The project owner expanded the plan to four puzzles so each player operates two systems. The initial power difficulty revision uses a longer symbol-only on/off procedure. Further difficulty tuning remains subject to playtesting.
 
 ## Players and experience
 
@@ -28,11 +28,18 @@ Accounts, matchmaking, built-in voice chat, additional rooms, 3D movement, and A
 
 ### 1. Restore power
 
-The equipment player operates four breakers labeled with distinct symbols and text names. The control player receives a wiring diagram and instructions identifying a damaged breaker and the safe activation order. Activating an incorrect breaker trips the panel and gives both players clear feedback. The equipment player can reset and retry. The correct sequence restores power and unlocks the pressure system.
+Equipment operates eight symbol-only switches. Descriptive symbol names are provided only as accessible labels. Control receives two private instruction blocks containing twelve ordered on/off actions. Both blocks remain visible throughout the puzzle, with no per-step highlighting or progress count. Each analyst block has a small completion lamp that turns green at the end of that block. A trip or reset clears both block lamps. These indicate completion within the current attempt, without saving an intermediate checkpoint.
 
-The initial implemented sequence is Tide → Anchor → Beacon. Coil is the damaged breaker and stays off. The operator sees all four labeled switches. Only the analyst receives the ordered feed diagram and damaged-circuit warning. Any incorrect breaker, including a repeated activation, trips the panel. Already-energized breakers are disabled in the operator UI. Reset clears partial progress and returns the panel to active status. Completion locks the panel and shows both players a power-restored outcome.
+All switches start off. The server selects one of six valid symbol-mapped procedures per run. One example is:
 
-This fixed sequence is an implementation choice for the first playable version and remains open to playtesting. Puzzle actions require the equipment role, an active session, and both players connected. They carry an action ID and expected puzzle version. Accepted IDs survive reconnects and resets within a run, exact repeats return the latest snapshot, stale versions are rejected, and reused IDs with different input are rejected. Leaving or seat expiration returns the remaining player to the lobby and clears puzzle progress. A temporary disconnect preserves progress. Tests cover the solution, incorrect actions, reset, role filtering, and replay protection.
+- Auxiliary startup — raise △, raise ≈, lower △, raise ○, raise ⊥, then lower ≈.
+- Airlock transfer — raise ◇, lower ○, raise △, lower ⊥, raise □, then raise ≈.
+
+Two of the eight symbols are distractors in each path. The unused symbols vary with the selected path. Every click toggles a switch, including switches already on. The server tracks the full ordered procedure separately from the current switch positions. An incorrect action trips the circuit and requires Reset panel, which clears both positions and procedure progress. This retains the initial reset-on-error behavior as the selected feedback policy for this iteration.
+
+A red lamp indicates an unfinished or tripped procedure, and green indicates restored power. Each analyst block lamp is red until its block is complete, then green. Text and accessible status announcements accompany the lamp. The final correct action automatically turns the lamp green and unlocks continuation. There is no check-circuit button, intermediate checkpoint, or visible sequence-progress counter. Only Control receives the two instruction blocks. Neither role receives the internal progress index.
+
+Puzzle actions require Equipment, an active session, and both players connected. Accepted action IDs and version checks prevent a duplicated switch request from toggling twice, including after reconnects. A temporary disconnect or refresh preserves positions and sequence progress. Reset restarts the entire twelve-action sequence with the same path. Refresh and reconnect also preserve the path. Starting a new game or using the testing skip tool chooses a different path from the preceding run. Selection uses server-side randomness, and the path identifier stays private to the server.
 
 ### Balanced player responsibilities
 
@@ -96,6 +103,12 @@ Each room snapshot includes a run identifier. Puzzle and transition requests fro
 | AC-11 | As a team, we can send a distress signal. | The equipment-room player operates the transmitter using the control-room player's private chart. Correct transmission unlocks hatch preparation. |
 | AC-12 | As either player, I get to operate two puzzles. | Equipment has primary controls in puzzles 1 and 3. Control has primary controls in puzzles 2 and 4. The partner supplies necessary information in every puzzle. |
 
+## Local testing controls
+
+When started through npm run dev or npm run dev:server in a non-production environment, the server advertises a testing-only Skip to puzzle selector. Either connected player can choose Power, Pressure, Transmitter, or Hatch once both seats have roles. Ready status is not required. Skipping moves both players, resets the run with a fresh identifier, initializes the selected puzzle, and prepares completed prerequisite systems using their existing rules.
+
+The server rejects skip requests unless this development capability is enabled. The default server factory and production startup keep it disabled. A normal game still follows the sequential puzzle gates. Leave room is placed directly below Station connected in the header throughout a session.
+
 ## Architecture
 
 ```mermaid
@@ -121,7 +134,7 @@ Initial room storage is in memory. Proposed recovery reserves a disconnected sea
 - Generate unpredictable room codes and separate private session credentials. A room code permits joining an available seat, while reclaiming an occupied seat requires its credential.
 - Enforce capacity and role ownership on the server, including simultaneous join attempts.
 - Validate message types, values, sizes, and allowed actions. Limit room creation, join attempts, and action rates.
-- Restrict production origins, use HTTPS/WSS for public hosting, and keep credentials out of logs and Git.
+- Limit actions to 120 requests per connection per minute and room-entry attempts to 120 per address per minute. Restrict production origins, use HTTPS/WSS for public hosting, and keep credentials out of logs and Git.
 - Review dependency vulnerability findings and asset licenses, recording remediation or justification.
 - Target WCAG 2.1 AA for the app interface. Verify contrast, keyboard navigation, focus management, reduced motion, and status announcements with automated checks and manual review.
 

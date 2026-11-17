@@ -33,11 +33,20 @@ A third player receives a room-full message. Invalid codes produce a readable er
 
 ## First puzzle walkthrough
 
-The analyst guides the operator through **Tide → Anchor → Beacon**, leaving **Coil** off. The order is fixed in this initial version. Each correct activation energizes a circuit. Activating the wrong breaker trips the panel and disables further breaker input until the operator chooses **Reset panel**. Reset clears all partial progress while keeping both players in the room.
+Equipment sees eight symbol-only switches. Control sees two private instruction blocks, each with a small completion lamp. Each new run selects one of six valid paths and differs from the preceding run. Start with every switch off and follow the analyst’s current instructions. One example is:
 
-Only the equipment operator can activate or reset breakers. The analyst's sequence and damage warning are sent only to that role. Both views show the shared panel status. Controls pause while a partner is disconnected. Refreshing either browser restores the current puzzle progress. After the final correct breaker, both players see the power-restored outcome. Further puzzle actions are locked. Choose **Continue to airlock** to begin the pressure puzzle. Either player can continue once both are connected. Leaving returns the remaining player to the lobby for a new run.
+- Auxiliary startup — raise △, raise ≈, lower △, raise ○, raise ⊥, lower ≈.
+- Airlock transfer — raise ◇, lower ○, raise △, lower ⊥, raise □, raise ≈.
 
-Puzzle requests include a unique action ID and the expected panel version. The server ignores exact repeats of accepted actions and rejects stale versions or reused IDs with different payloads. A room retains at most 1,024 accepted puzzle actions per run. Starting a new run clears that history.
+Switches can be turned on and off repeatedly. A wrong move trips the panel. **Reset panel** returns every switch to off and restarts both instruction blocks. The lamp is red until the complete procedure is correct, then turns green automatically. There is no check-circuit button or step counter. Each analyst block lamp starts red and turns green after that block is completed. A trip or reset clears both block lamps, so the full procedure must be restarted. Accessible names describe the symbols for screen readers, while the visible panel uses symbols only.
+
+Refresh restores current switch positions, sequence progress, and the selected path. Reset and retry keep the same path. A new game or testing jump selects a different path. **Continue to airlock** becomes available once power is restored. Puzzle actions use unique IDs and expected versions so an accepted request cannot toggle a switch twice when repeated.
+
+## Jump directly to a puzzle while testing
+
+Run `npm run dev` or `npm run dev:server` with NODE_ENV unset or set to development. After both players join and choose roles, use **Testing tools · skip to puzzle**, select a puzzle, and choose **Skip to puzzle**. Both players move together. Each jump starts a fresh run at that puzzle with its prerequisite systems completed. You can jump again from any puzzle without replaying the earlier ones.
+
+The server enforces this development capability. Production startup and the default server factory disable it. The **Leave room** link sits beneath the station connection indicator in the header.
 
 ## Second puzzle walkthrough
 
@@ -91,7 +100,7 @@ flowchart LR
 - `server/pressure.ts` derives pressure from valve settings, enforces the pump interlock, and filters readings and controls by role.
 - `server/transmitter.ts` checks radio settings, handles unanswered/acknowledged transmissions, and keeps the chart separate from the applied settings.
 - `server/hatch.ts` validates code authorization, individual arming, release, and role-specific maintenance instructions.
-- `server/server.ts` validates network requests, applies a per-address request limit, and sends room snapshots only to their members.
+- `server/server.ts` validates network requests, limits actions per connection and room-entry attempts per address, and sends room snapshots only to their members.
 - `tests/` contains rule, transport, and browser tests.
 
 Room codes permit joining open seats. Separate random credentials authorize seat recovery. Public snapshots omit those credentials. The server validates role ownership, puzzle versions, and allowed actions. Each connected player receives a separately filtered snapshot. In-memory storage supports one server process. State-changing lobby setters are idempotent where applicable, snapshots carry increasing revisions, and puzzle actions are deduplicated across reconnects.
@@ -109,7 +118,7 @@ npm audit
 
 The build checks frontend and backend TypeScript and produces frontend assets in dist. Production serving and deployment are pending. To preview the built frontend, start the backend with `CLIENT_ORIGIN=http://localhost:4173 npm run dev:server` in one terminal and run `npm run preview` in another. Stop the development backend first so port 3001 is available.
 
-Rule tests cover capacity, role ownership, ready/start gates, private recovery, readiness reset, expiration, and room isolation. Transport tests connect actual Socket.IO clients to verify competing role claims, unauthorized actions, malformed requests, and credential-based seat recovery. Puzzle tests cover the exact solution, wrong order, damaged and repeated breakers, reset, role privacy, stale requests, duplicate actions, partner disconnection, and refresh recovery. Pressure tests also enumerate all eight valve configurations and verify reversal, safe pumping, transition gates, alternating role permissions, private views, resets, reconnects, and completion. Transmitter tests verify exact rescue settings, unanswered attempts, resets, private chart delivery, stage gates, malformed settings, duplicate IDs, stale versions, and reconnect recovery. Hatch and replay tests cover code rejection, authorization, individual arming, premature release, disconnect disarming, private manual delivery, replay cancellation and agreement, and stale requests from a completed run. Playwright tests exercise the lobby and all four puzzles in separate Chromium contexts, reject a third player, synchronize outcomes, verify a replay can start again, and check keyboard interaction and narrow-screen overflow.
+Rule tests cover capacity, role ownership, ready/start gates, private recovery, readiness reset, expiration, and room isolation. Transport tests connect actual Socket.IO clients to verify competing role claims, unauthorized actions, malformed requests, and credential-based seat recovery. Power tests cover the twelve-action solution, on/off loops, wrong inputs, reset, hidden progress, private instruction blocks, stale requests, duplicate actions, partner disconnection, and refresh recovery. Pressure tests also enumerate all eight valve configurations and verify reversal, safe pumping, transition gates, alternating role permissions, private views, resets, reconnects, and completion. Transmitter tests verify exact rescue settings, unanswered attempts, resets, private chart delivery, stage gates, malformed settings, duplicate IDs, stale versions, and reconnect recovery. Hatch and replay tests cover code rejection, authorization, individual arming, premature release, disconnect disarming, private manual delivery, replay cancellation and agreement, and stale requests from a completed run. Playwright tests exercise the lobby and all four puzzles in separate Chromium contexts, reject a third player, synchronize outcomes, verify a replay can start again, and check keyboard interaction and narrow-screen overflow.
 
 Automated checks are AI-run evidence. Project-owner code review, keyboard and screen-reader review, and manual Chrome/Firefox/Safari verification remain to be recorded. The complete accessibility and security reviews described in SPEC.md remain capstone milestones.
 

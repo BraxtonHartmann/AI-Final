@@ -1,5 +1,27 @@
 export type Role = 'equipment' | 'control'
 
+export type HatchAction =
+  | { type: 'submit'; code: string }
+  | { type: 'arm'; armed: boolean }
+  | { type: 'release' }
+  | { type: 'reset' }
+export interface HatchState {
+  status: 'locked' | 'rejected' | 'authorized' | 'open'
+  armed: Record<Role, boolean>
+  version: number
+}
+export interface HatchSymbol {
+  id: string
+  label: string
+  symbol: string
+  digit: string
+}
+export type HatchView = HatchState &
+  (
+    | { role: 'control' }
+    | { role: 'equipment'; plate: string[]; legend: HatchSymbol[] }
+  )
+
 export const radioFrequencies = [4200, 5600, 6800] as const
 export const antennaBearings = ['north', 'east', 'south', 'west'] as const
 export interface RadioSettings {
@@ -84,6 +106,7 @@ export interface PlayerView {
 
 export interface RoomView {
   code: string
+  runId: string
   revision: number
   phase:
     | 'lobby'
@@ -93,10 +116,14 @@ export interface RoomView {
     | 'pressure-complete'
     | 'transmitter'
     | 'transmitter-complete'
+    | 'hatch'
+    | 'escaped'
   players: PlayerView[]
   power?: PowerView
   pressure?: PressureView
   transmitter?: TransmitterView
+  hatch?: HatchView
+  replay?: Record<Role, boolean>
 }
 
 export type Request =
@@ -107,21 +134,36 @@ export type Request =
   | { type: 'ready'; ready: boolean }
   | { type: 'start' }
   | { type: 'leave' }
-  | { type: 'continue'; target?: 'pressure' | 'transmitter' }
+  | {
+      type: 'continue'
+      target?: 'pressure' | 'transmitter' | 'hatch'
+      runId?: string
+    }
+  | { type: 'replay'; ready: boolean; runId: string }
+  | {
+      type: 'hatch'
+      action: HatchAction
+      actionId: string
+      expectedVersion: number
+      runId?: string
+    }
   | {
       type: 'transmitter'
+      runId?: string
       action: TransmitterAction
       actionId: string
       expectedVersion: number
     }
   | {
       type: 'pressure'
+      runId?: string
       action: PressureAction
       actionId: string
       expectedVersion: number
     }
   | {
       type: 'power'
+      runId?: string
       action: PowerAction
       actionId: string
       expectedVersion: number

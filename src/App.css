@@ -851,3 +851,164 @@ select:focus-visible {
     margin-bottom: 0;
   }
 }
+
+.hatch-plate {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  list-style: none;
+  padding: 0;
+  gap: 16px;
+  margin: 28px 0;
+}
+.hatch-plate li {
+  border: 1px solid #65808a;
+  padding: 25px 10px;
+  text-align: center;
+  background: #0a2028;
+}
+.hatch-plate li > span {
+  display: block;
+  font-size: 42px;
+  margin-bottom: 15px;
+}
+.hatch-plate li > strong {
+  font-size: 14px;
+}
+.hatch-legend {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  padding: 20px 0;
+  border-block: 1px solid #35515a;
+}
+.hatch-legend > div {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+.hatch-legend > div > span {
+  font-size: 25px;
+  color: #b4c8ca;
+}
+.hatch-legend p {
+  font-size: 13px;
+  color: #b4c8ca;
+  margin: 0;
+}
+.hatch-legend strong {
+  display: block;
+  font-size: 25px;
+  color: #c4e7d2;
+}
+.hatch-keypad {
+  max-width: 360px;
+  background: #0a2028;
+  border: 1px solid #65808a;
+  padding: 25px;
+  margin-top: 25px;
+}
+.hatch-keypad input {
+  text-align: center;
+  font-size: 26px;
+  letter-spacing: 0.3em;
+}
+.keypad-digits {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 20px 0;
+}
+.keypad-digits button {
+  font-size: 20px;
+  padding: 10px;
+}
+.hatch-keypad > button {
+  width: 100%;
+}
+.hatch-arming {
+  margin-top: 30px;
+  border-top: 1px solid #35515a;
+  padding-top: 25px;
+}
+.hatch-arming h4 {
+  font-size: 20px;
+  margin: 0;
+}
+.escape-panel {
+  max-width: 640px;
+  padding-top: 40px;
+  margin: auto;
+}
+.escape-panel > .eyebrow,
+.escape-panel > h3,
+.escape-panel > p {
+  text-align: center;
+}
+.escape-panel > h3 {
+  font-family: 'Barlow Condensed', Arial, sans-serif;
+  font-size: clamp(54px, 8vw, 80px);
+  font-weight: 600;
+  margin: 15px 0;
+}
+.escape-panel > h3:focus {
+  outline: none;
+}
+.escape-panel > p {
+  color: #b4c8ca;
+}
+.escape-porthole {
+  width: 120px;
+  height: 120px;
+  border: 8px solid #65808a;
+  border-radius: 50%;
+  margin: 25px auto;
+  background: linear-gradient(#b8e0c7 0 47%, #193740 47%);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 45px #b8e0c715;
+}
+.escape-porthole > span {
+  width: 50px;
+  border-top: 2px solid #b8e0c7;
+  margin-top: 45px;
+}
+.escape-systems {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 30px 0;
+}
+.escape-systems span {
+  color: #b8e0c7;
+  margin-right: 6px;
+}
+.replay-panel {
+  border-top: 1px solid #35515a;
+  padding-top: 25px;
+}
+.replay-panel h4 {
+  font-size: 24px;
+  margin: 0;
+}
+.replay-panel > p {
+  color: #b4c8ca;
+  font-size: 15px;
+}
+@media (max-width: 650px) {
+  .hatch-plate,
+  .hatch-legend {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hatch-puzzle .puzzle-heading {
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .hatch-keypad {
+    padding: 18px;
+  }
+  .escape-systems {
+    grid-template-columns: 1fr;
+  }
+}

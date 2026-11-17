@@ -244,8 +244,16 @@ export function TransmitterPanel({
         <div className="power-success" role="status">
           <h4>Third system restored.</h4>
           <p>
-            Rescue has your location. The final hatch puzzle is coming next.
+            Rescue has your location. Control operates the hatch keypad next,
+            while Equipment reads the maintenance instructions.
           </p>
+          <button
+            className="primary"
+            disabled={disabled || !partnerConnected}
+            onClick={() => void send({ type: 'continue', target: 'hatch' })}
+          >
+            Continue to hatch
+          </button>
         </div>
       )}
     </div>

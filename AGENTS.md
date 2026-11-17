@@ -1,6 +1,6 @@
 # Repository context
 
-This is a CS 3810 capstone built with AI assistance. Read SPEC.md for scope and acceptance criteria, README.md for run instructions, and PROMPT_LOG.md for decisions and verification history. The current implementation covers the two-player lobby, Restore Power, Drain the Airlock, and Send a Distress Signal. The four-puzzle plan alternates primary controls between equipment (1 and 3) and control (2 and 4). The final hatch puzzle remains pending.
+This is a CS 3810 capstone built with AI assistance. Read SPEC.md for scope and acceptance criteria, README.md for run instructions, and PROMPT_LOG.md for decisions and verification history. The current implementation covers the two-player lobby, all four initial puzzles, shared escape, and two-player replay. The four-puzzle plan alternates primary controls between equipment (1 and 3) and control (2 and 4). Puzzle and transition messages carry the current run identifier. Returning to the lobby rotates it, and returning players must re-arm their own hatch side.
 
 ## Engineering workflow
 

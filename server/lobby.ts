@@ -1,5 +1,7 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto'
 import type {
+  HatchAction,
+  HatchState,
   PowerAction,
   PowerState,
   PressureAction,
@@ -24,6 +26,8 @@ import {
   transmitterView,
 } from './transmitter.ts'
 
+import { applyHatchAction, initialHatch, hatchView } from './hatch.ts'
+
 interface Player {
   id: string
   token: string
@@ -35,6 +39,10 @@ interface Player {
 
 interface Room {
   code: string
+  runId: string
+  requireRunId: boolean
+  replay: Record<Role, boolean>
+  hatch: HatchState
   revision: number
   phase: RoomView['phase']
   players: Player[]
@@ -92,6 +100,7 @@ export class Lobby {
     const player = room.players.find((entry) => entry.socketId === socketId)
     return {
       code: room.code,
+      runId: room.runId,
       revision: room.revision,
       phase: room.phase,
       players: room.players.map((player) => ({
@@ -113,6 +122,10 @@ export class Lobby {
       player?.role
         ? { transmitter: transmitterView(room.transmitter, player.role) }
         : {}),
+      ...((room.phase === 'hatch' || room.phase === 'escaped') && player?.role
+        ? { hatch: hatchView(room.hatch, player.role) }
+        : {}),
+      ...(room.phase === 'escaped' ? { replay: { ...room.replay } } : {}),
     }
   }
 
@@ -158,6 +171,10 @@ export class Lobby {
     } while (this.rooms.has(code))
     const room: Room = {
       code,
+      runId: randomUUID(),
+      requireRunId: false,
+      replay: { equipment: false, control: false },
+      hatch: initialHatch(),
       revision: 0,
       phase: 'lobby',
       players: [],
@@ -201,6 +218,7 @@ export class Lobby {
     player.socketId = socketId
     player.disconnectedAt = null
     player.ready = false
+    this.withdrawConsent(room, player)
     this.connections.set(socketId, code)
     this.changed(room)
     return {
@@ -249,10 +267,7 @@ export class Lobby {
       )
     }
     room.phase = 'power'
-    room.power = initialPower()
-    room.pressure = initialPressure()
-    room.transmitter = initialTransmitter()
-    room.actions.clear()
+    this.resetPuzzles(room)
     this.changed(room)
     return this.view(room.code, socketId)
   }
@@ -262,9 +277,11 @@ export class Lobby {
     action: PowerAction,
     actionId: string,
     expectedVersion: number,
+    runId?: string,
   ) {
     return this.applyPuzzle(socketId, {
       type: 'power',
+      runId,
       action,
       actionId,
       expectedVersion,
@@ -276,9 +293,11 @@ export class Lobby {
     action: PressureAction,
     actionId: string,
     expectedVersion: number,
+    runId?: string,
   ) {
     return this.applyPuzzle(socketId, {
       type: 'pressure',
+      runId,
       action,
       actionId,
       expectedVersion,
@@ -290,40 +309,91 @@ export class Lobby {
     action: TransmitterAction,
     actionId: string,
     expectedVersion: number,
+    runId?: string,
   ) {
     return this.applyPuzzle(socketId, {
       type: 'transmitter',
+      runId,
       action,
       actionId,
       expectedVersion,
     })
   }
 
-  continue(socketId: string, target: 'pressure' | 'transmitter' = 'pressure') {
+  hatch(
+    socketId: string,
+    action: HatchAction,
+    actionId: string,
+    expectedVersion: number,
+    runId?: string,
+  ) {
+    return this.applyPuzzle(socketId, {
+      type: 'hatch',
+      action,
+      actionId,
+      expectedVersion,
+      runId,
+    })
+  }
+
+  private resetPuzzles(room: Room) {
+    room.power = initialPower()
+    room.pressure = initialPressure()
+    room.transmitter = initialTransmitter()
+    room.hatch = initialHatch()
+    room.replay = { equipment: false, control: false }
+    room.actions.clear()
+  }
+
+  private returnToLobby(room: Room) {
+    room.runId = randomUUID()
+    room.requireRunId = true
+    room.phase = 'lobby'
+    this.resetPuzzles(room)
+    room.players.forEach((entry) => {
+      entry.ready = false
+    })
+  }
+
+  private checkRun(room: Room, runId?: string) {
+    if ((room.requireRunId || runId !== undefined) && runId !== room.runId)
+      throw new Error(
+        'This run has changed. Refresh to use the current room state.',
+      )
+  }
+
+  continue(
+    socketId: string,
+    target: 'pressure' | 'transmitter' | 'hatch' = 'pressure',
+    runId?: string,
+  ) {
     const { room } = this.member(socketId)
-    // Old clients without a target retain their original power-to-pressure behavior.
-    if (
-      target === 'pressure' &&
-      [
-        'pressure',
-        'pressure-complete',
-        'transmitter',
-        'transmitter-complete',
-      ].includes(room.phase)
-    )
+    this.checkRun(room, runId)
+    const stages = [
+      'lobby',
+      'power',
+      'power-complete',
+      'pressure',
+      'pressure-complete',
+      'transmitter',
+      'transmitter-complete',
+      'hatch',
+      'escaped',
+    ]
+    if (stages.indexOf(room.phase) >= stages.indexOf(target))
       return this.view(room.code, socketId)
-    if (
-      target === 'transmitter' &&
-      (room.phase === 'transmitter' || room.phase === 'transmitter-complete')
-    )
-      return this.view(room.code, socketId)
-    const requiredPhase =
-      target === 'pressure' ? 'power-complete' : 'pressure-complete'
+    const requiredPhase = {
+      pressure: 'power-complete',
+      transmitter: 'pressure-complete',
+      hatch: 'transmitter-complete',
+    }[target]
     if (room.phase !== requiredPhase)
       throw new Error(
         target === 'pressure'
           ? 'Restore power before continuing to the airlock.'
-          : 'Drain the airlock before continuing to the transmitter.',
+          : target === 'transmitter'
+            ? 'Drain the airlock before continuing to the transmitter.'
+            : 'Receive rescue acknowledgment before continuing to the hatch.',
       )
     if (
       room.players.length !== 2 ||
@@ -335,13 +405,35 @@ export class Lobby {
     return this.view(room.code, socketId)
   }
 
+  replay(socketId: string, ready: boolean, runId: string) {
+    const { room, player } = this.member(socketId)
+    this.checkRun(room, runId)
+    if (room.phase !== 'escaped' || !player.role)
+      throw new Error('Finish the escape before requesting a replay.')
+    if (
+      room.players.length !== 2 ||
+      !room.players.every((entry) => entry.socketId)
+    )
+      throw new Error('Wait for your partner to reconnect.')
+    room.replay[player.role] = ready
+    if (room.replay.equipment && room.replay.control) {
+      this.returnToLobby(room)
+    }
+    this.changed(room)
+    return this.view(room.code, socketId)
+  }
+
   private applyPuzzle(
     socketId: string,
-    request: Extract<Request, { type: 'power' | 'pressure' | 'transmitter' }>,
+    request: Extract<
+      Request,
+      { type: 'power' | 'pressure' | 'transmitter' | 'hatch' }
+    >,
   ) {
     const { room, player } = this.member(socketId)
+    this.checkRun(room, request.runId)
     const requiredRole = request.type === 'pressure' ? 'control' : 'equipment'
-    if (player.role !== requiredRole)
+    if (request.type !== 'hatch' && player.role !== requiredRole)
       throw new Error(
         request.type === 'power'
           ? 'Only the equipment operator can use the breaker panel.'
@@ -377,6 +469,8 @@ export class Lobby {
         throw new Error('The airlock is already drained.')
       if (request.type === 'transmitter' && room.transmitter.status === 'sent')
         throw new Error('Rescue has already acknowledged the signal.')
+      if (request.type === 'hatch' && room.hatch.status === 'open')
+        throw new Error('The hatch is already open.')
       throw new Error('This puzzle is not active yet.')
     }
     if (request.expectedVersion !== room[request.type].version)
@@ -391,13 +485,17 @@ export class Lobby {
     } else if (request.type === 'pressure') {
       room.pressure = applyPressureAction(room.pressure, request.action)
       if (room.pressure.status === 'drained') room.phase = 'pressure-complete'
-    } else {
+    } else if (request.type === 'transmitter') {
       room.transmitter = applyTransmitterAction(
         room.transmitter,
         request.action,
       )
       if (room.transmitter.status === 'sent')
         room.phase = 'transmitter-complete'
+    } else {
+      if (!player.role) throw new Error('Choose a role before using the hatch.')
+      room.hatch = applyHatchAction(room.hatch, request.action, player.role)
+      if (room.hatch.status === 'open') room.phase = 'escaped'
     }
     room.actions.set(key, fingerprint)
     this.changed(room)
@@ -410,14 +508,7 @@ export class Lobby {
     room.players = room.players.filter((entry) => entry.id !== player.id)
     if (room.players.length === 0) this.rooms.delete(room.code)
     else {
-      room.phase = 'lobby'
-      room.power = initialPower()
-      room.pressure = initialPressure()
-      room.transmitter = initialTransmitter()
-      room.actions.clear()
-      room.players.forEach((entry) => {
-        entry.ready = false
-      })
+      this.returnToLobby(room)
       this.changed(room)
     }
     return room.code
@@ -430,7 +521,19 @@ export class Lobby {
     player.socketId = null
     player.disconnectedAt = this.now()
     player.ready = false
+    this.withdrawConsent(room, player)
     this.changed(room)
+  }
+
+  private withdrawConsent(room: Room, player: Player) {
+    if (!player.role) return
+    room.replay[player.role] = false
+    if (room.phase === 'hatch' && room.hatch.armed[player.role])
+      room.hatch = applyHatchAction(
+        room.hatch,
+        { type: 'arm', armed: false },
+        player.role,
+      )
   }
 
   sweep() {
@@ -453,14 +556,7 @@ export class Lobby {
       room.players = remaining
       if (remaining.length === 0) this.rooms.delete(room.code)
       else {
-        room.phase = 'lobby'
-        room.power = initialPower()
-        room.pressure = initialPressure()
-        room.transmitter = initialTransmitter()
-        room.actions.clear()
-        remaining.forEach((player) => {
-          player.ready = false
-        })
+        this.returnToLobby(room)
         this.changed(room)
       }
     }

@@ -5,6 +5,8 @@ import './App.css'
 import { PowerPanel } from './PowerPanel'
 import { PressurePanel } from './PressurePanel'
 import { TransmitterPanel } from './TransmitterPanel'
+import { HatchPanel } from './HatchPanel'
+import { EscapePanel } from './EscapePanel'
 
 const roles: { id: Role; title: string; description: string }[] = [
   {
@@ -274,6 +276,25 @@ function App() {
                     room.players.length === 2 &&
                     room.players.every((entry) => entry.connected)
                   }
+                  send={send}
+                />
+              )}
+              {room.hatch && room.phase !== 'escaped' && (
+                <HatchPanel
+                  hatch={room.hatch}
+                  disabled={disabled}
+                  partnerConnected={
+                    room.players.length === 2 &&
+                    room.players.every((entry) => entry.connected)
+                  }
+                  send={send}
+                />
+              )}
+              {room.phase === 'escaped' && player?.role && (
+                <EscapePanel
+                  room={room}
+                  role={player.role}
+                  disabled={disabled}
                   send={send}
                 />
               )}

@@ -137,9 +137,13 @@ export function useLobby() {
     setBusy(true)
     setError('')
     try {
+      const outgoing =
+        'actionId' in request || request.type === 'continue'
+          ? { ...request, runId: room?.runId }
+          : request
       const reply: Reply = await socket
         .timeout(5000)
-        .emitWithAck('request', request)
+        .emitWithAck('request', outgoing)
       if (!reply.ok) {
         setError(reply.error)
         return

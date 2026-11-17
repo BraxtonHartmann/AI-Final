@@ -286,7 +286,145 @@ test('real clients handle role races, room isolation, reconnect, and invalid req
     ),
   )
   assert.ok(
-    chartBroadcasts.every((value) => !Object.hasOwn(JSON.parse(value), 'settings')),
+    chartBroadcasts.every(
+      (value) => !Object.hasOwn(JSON.parse(value), 'settings'),
+    ),
   )
+  const hatch = await send(control, { type: 'continue', target: 'hatch' })
+  assert.ok(hatch.ok && hatch.room?.hatch?.role === 'control')
+  assert.equal('plate' in hatch.room.hatch, false)
+  assert.equal('legend' in hatch.room.hatch, false)
+  const runId = hatch.room.runId
+  const manual = await send(equipment, { type: 'continue', target: 'hatch' })
+  assert.ok(manual.ok && manual.room?.hatch?.role === 'equipment')
+  assert.equal(
+    (
+      await send(equipment, {
+        type: 'hatch',
+        action: { type: 'submit', code: '4826' },
+        actionId: 'denied-code',
+        expectedVersion: 0,
+      })
+    ).ok,
+    false,
+  )
+  for (const request of [
+    {
+      type: 'hatch',
+      action: { type: 'submit', code: 4826 },
+      actionId: 'invalid',
+      expectedVersion: 0,
+    },
+    {
+      type: 'hatch',
+      action: { type: 'submit', code: '48265' },
+      actionId: 'invalid',
+      expectedVersion: 0,
+    },
+    {
+      type: 'hatch',
+      action: { type: 'arm', armed: 'true' },
+      actionId: 'invalid',
+      expectedVersion: 0,
+    },
+    {
+      type: 'hatch',
+      action: { type: 'open' },
+      actionId: 'invalid',
+      expectedVersion: 0,
+    },
+    {
+      type: 'hatch',
+      action: { type: 'release' },
+      actionId: 'invalid',
+      expectedVersion: 0,
+      runId: 5,
+    },
+    { type: 'replay', ready: 'true', runId },
+    { type: 'replay', ready: true, runId: 'bad' },
+  ])
+    assert.equal((await send(control, request as unknown as Request)).ok, false)
+  const hatchBroadcasts: string[] = []
+  control.on('room', (room) => {
+    if (room.hatch) hatchBroadcasts.push(JSON.stringify(room.hatch))
+  })
+  await send(control, {
+    type: 'hatch',
+    action: { type: 'submit', code: '4826' },
+    actionId: 'hatch-code',
+    expectedVersion: 0,
+    runId,
+  })
+  await send(control, {
+    type: 'hatch',
+    action: { type: 'arm', armed: true },
+    actionId: 'control-arm',
+    expectedVersion: 1,
+    runId,
+  })
+  await send(equipment, {
+    type: 'hatch',
+    action: { type: 'arm', armed: true },
+    actionId: 'equipment-arm',
+    expectedVersion: 2,
+    runId,
+  })
+  const escaped = await send(control, {
+    type: 'hatch',
+    action: { type: 'release' },
+    actionId: 'release',
+    expectedVersion: 3,
+    runId,
+  })
+  assert.ok(escaped.ok && escaped.room?.phase === 'escaped')
+  assert.ok(
+    hatchBroadcasts.length > 0 &&
+      hatchBroadcasts.every(
+        (value) => !value.includes('plate') && !value.includes('legend'),
+      ),
+  )
+  const replayVote = await send(equipment, {
+    type: 'replay',
+    ready: true,
+    runId,
+  })
+  assert.ok(replayVote.ok && replayVote.room?.phase === 'escaped')
+  const restarted = await send(control, { type: 'replay', ready: true, runId })
+  assert.ok(restarted.ok && restarted.room?.phase === 'lobby')
+  assert.notEqual(restarted.room.runId, runId)
+  await send(equipment, { type: 'ready', ready: true })
+  await send(control, { type: 'ready', ready: true })
+  await send(control, { type: 'start' })
+  assert.equal(
+    (
+      await send(equipment, {
+        type: 'power',
+        action: { type: 'breaker', breaker: 'tide' },
+        actionId: 'old-run',
+        expectedVersion: 0,
+        runId,
+      })
+    ).ok,
+    false,
+  )
+  assert.equal(
+    (
+      await send(equipment, {
+        type: 'power',
+        action: { type: 'breaker', breaker: 'tide' },
+        actionId: 'legacy-run',
+        expectedVersion: 0,
+      })
+    ).ok,
+    false,
+  )
+  const newMove = await send(equipment, {
+    type: 'power',
+    action: { type: 'breaker', breaker: 'tide' },
+    actionId: 'new-run',
+    expectedVersion: 0,
+    runId: restarted.room.runId,
+  })
+  assert.ok(newMove.ok && newMove.room?.power?.version === 1)
   assert.equal((await send(reconnected, { type: 'leave' })).ok, true)
 })

@@ -2,7 +2,7 @@
 
 A two-player browser escape room for the CS 3810 AI capstone. Players work from separate equipment and control-room screens to escape a submerged research station.
 
-The current build includes the real-time two-player lobby and three playable puzzles, Restore Power, Drain the Airlock, and Send a Distress Signal. The four-puzzle plan alternates primary controls so each player operates two systems. The hatch puzzle is the final gameplay milestone. Difficulty will be increased after the initial flow is built.
+The current build includes the real-time two-player lobby and all four initial puzzles, followed by a shared escape outcome and consensual replay. The four-puzzle plan alternates primary controls so each player operates two systems. The full initial gameplay flow is playable. Difficulty will be increased after the initial flow is built.
 
 ## Run locally
 
@@ -53,16 +53,26 @@ Equipment operates the radio while Control reads a private transmission chart. C
 
 The radio starts at 4.2 MHz/north with an unset code. An incorrect transmission gives both players a **No acknowledgment** message and allows another attempt. **Reset radio** restores the initial settings while retaining completed power and drainage. The radio transmits the last applied configuration. Unsaved form edits are drafts, and only applied settings return after a refresh. Signal codes contain exactly four digits.
 
-A correct transmission gives both players a rescue acknowledgment and locks the radio. The final hatch puzzle is next to be built. The frequencies and codes are fictional game settings for this first version.
+A correct transmission gives both players a rescue acknowledgment and locks the radio. Choose **Continue to hatch** to enter the final puzzle. The frequencies and codes are fictional game settings for this first version.
 
-## Four-puzzle plan
+## Final hatch and replay walkthrough
+
+Equipment reads the ordered plate **Triangle → Wave → Anchor → Ring** and uses its private maintenance legend to guide Control to code **4826**. Control can type the code or use the on-screen keypad, then choose **Authorize release**. A wrong code gives both players rejection feedback and permits another attempt.
+
+Each player then arms their own side. Control chooses **Release hatch** once both sides are armed. Both players must be connected. Refreshing or disconnecting withdraws the affected player's arm, so that player must arm again after returning. Authorization remains saved. **Reset keypad and arms** clears the code authorization and both arms without losing earlier systems.
+
+Both players see **You escaped**. Each can choose **Play again** or cancel their request. Once both agree, they return to the same room's lobby with their seats and roles retained. All puzzle progress and readiness reset, and the players can switch roles before starting again. A disconnected player's replay vote is withdrawn.
+
+Run identifiers rotate when a run resets through replay, leaving, or seat expiration. The server rejects commands tagged for the previous run, preventing a delayed action from affecting the next game. The browser automatically includes the current identifier on puzzle and transition requests.
+
+## Four-puzzle roles
 
 | Puzzle | Equipment room | Control room |
 | --- | --- | --- |
 | Restore power | Operate breakers | Read wiring diagram |
 | Drain the airlock | Read pressure gauges | Operate valves and pump |
 | Send a distress signal | Operate transmitter | Read transmission chart |
-| Release the hatch — proposed | Read status and maintenance instructions | Operate keypad and release |
+| Release the hatch | Read status and maintenance instructions | Operate keypad and release |
 
 ## Architecture
 
@@ -80,6 +90,7 @@ flowchart LR
 - `server/power.ts` implements the deterministic breaker rules and builds role-specific puzzle views.
 - `server/pressure.ts` derives pressure from valve settings, enforces the pump interlock, and filters readings and controls by role.
 - `server/transmitter.ts` checks radio settings, handles unanswered/acknowledged transmissions, and keeps the chart separate from the applied settings.
+- `server/hatch.ts` validates code authorization, individual arming, release, and role-specific maintenance instructions.
 - `server/server.ts` validates network requests, applies a per-address request limit, and sends room snapshots only to their members.
 - `tests/` contains rule, transport, and browser tests.
 
@@ -98,7 +109,7 @@ npm audit
 
 The build checks frontend and backend TypeScript and produces frontend assets in dist. Production serving and deployment are pending. To preview the built frontend, start the backend with `CLIENT_ORIGIN=http://localhost:4173 npm run dev:server` in one terminal and run `npm run preview` in another. Stop the development backend first so port 3001 is available.
 
-Rule tests cover capacity, role ownership, ready/start gates, private recovery, readiness reset, expiration, and room isolation. Transport tests connect actual Socket.IO clients to verify competing role claims, unauthorized actions, malformed requests, and credential-based seat recovery. Puzzle tests cover the exact solution, wrong order, damaged and repeated breakers, reset, role privacy, stale requests, duplicate actions, partner disconnection, and refresh recovery. Pressure tests also enumerate all eight valve configurations and verify reversal, safe pumping, transition gates, alternating role permissions, private views, resets, reconnects, and completion. Transmitter tests verify exact rescue settings, unanswered attempts, resets, private chart delivery, stage gates, malformed settings, duplicate IDs, stale versions, and reconnect recovery. Playwright tests exercise the lobby and all three puzzles in separate Chromium contexts, reject a third player, synchronize outcomes, and check keyboard interaction and narrow-screen overflow.
+Rule tests cover capacity, role ownership, ready/start gates, private recovery, readiness reset, expiration, and room isolation. Transport tests connect actual Socket.IO clients to verify competing role claims, unauthorized actions, malformed requests, and credential-based seat recovery. Puzzle tests cover the exact solution, wrong order, damaged and repeated breakers, reset, role privacy, stale requests, duplicate actions, partner disconnection, and refresh recovery. Pressure tests also enumerate all eight valve configurations and verify reversal, safe pumping, transition gates, alternating role permissions, private views, resets, reconnects, and completion. Transmitter tests verify exact rescue settings, unanswered attempts, resets, private chart delivery, stage gates, malformed settings, duplicate IDs, stale versions, and reconnect recovery. Hatch and replay tests cover code rejection, authorization, individual arming, premature release, disconnect disarming, private manual delivery, replay cancellation and agreement, and stale requests from a completed run. Playwright tests exercise the lobby and all four puzzles in separate Chromium contexts, reject a third player, synchronize outcomes, verify a replay can start again, and check keyboard interaction and narrow-screen overflow.
 
 Automated checks are AI-run evidence. Project-owner code review, keyboard and screen-reader review, and manual Chrome/Firefox/Safari verification remain to be recorded. The complete accessibility and security reviews described in SPEC.md remain capstone milestones.
 

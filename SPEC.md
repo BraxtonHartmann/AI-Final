@@ -4,7 +4,7 @@
 
 Build a two-player browser escape room for the CS 3810 Applied Generative AI capstone, primarily under Track A, Web Design & Interactive Applications. Players receive different information and must communicate to escape a submerged research station.
 
-This is the initial specification, dated November 16, 2026. The browser platform, co-op concept, and React stack were discussed with the project owner. The underwater setting, puzzle rules, recovery policy, and scope below are working proposals to review during development. The current build includes the two-player lobby, Restore Power, Drain the Airlock, and Send a Distress Signal. The final hatch puzzle remains pending. The project owner expanded the plan to four puzzles so each player operates two systems. Difficulty increases are deferred until the complete initial flow is playable.
+This is the initial specification, dated November 16, 2026. The browser platform, co-op concept, and React stack were discussed with the project owner. The underwater setting, puzzle rules, recovery policy, and scope below are working proposals to review during development. The current build includes the two-player lobby and all four initial puzzles, a shared escape outcome, and two-player replay. Broader validation and capstone packaging remain pending. The project owner expanded the plan to four puzzles so each player operates two systems. Difficulty increases are deferred until the complete initial flow is playable.
 
 ## Players and experience
 
@@ -41,9 +41,9 @@ This fixed sequence is an implementation choice for the first playable version a
 | 1. Restore power | Equipment room | Control-room wiring diagram | Implemented |
 | 2. Drain the airlock | Control room | Equipment-room pressure gauges | Implemented |
 | 3. Send a distress signal | Equipment room | Control-room transmission chart | Implemented |
-| 4. Release the hatch | Control room | Equipment-room status and maintenance instructions | Proposed |
+| 4. Release the hatch | Control room | Equipment-room status and maintenance instructions | Implemented |
 
-Room identities stay the same throughout the game. Operating and guiding responsibilities alternate. Both players participate in every puzzle, and each has the primary controls in two. The transmitter follows the alternating split. The revised hatch interaction below remains a working proposal selected to satisfy the requested balance.
+Room identities stay the same throughout the game. Operating and guiding responsibilities alternate. Both players participate in every puzzle, and each has the primary controls in two. The transmitter follows the alternating split. The hatch completes the requested operating-role balance.
 
 ### 2. Drain the airlock
 
@@ -65,13 +65,19 @@ Equipment edits a form and selects Apply settings to save all three values toget
 
 The puzzle uses the existing role, connection, version, and action-ID checks. Only Equipment can tune, reset, or transmit. Neither role receives the other role's private view. Stage transitions now name their destination. A repeated or delayed transition to an earlier stage returns the current snapshot, and a premature transition is rejected. Requests from older clients without a destination retain the original transition to pressure, preventing a late request from advancing a newer puzzle.
 
-Completion authorizes the future hatch stage. The final hatch interaction remains pending. Difficulty increases remain deferred.
+Completion unlocks Continue to hatch. Difficulty increases remain deferred.
 
 ### 4. Release the hatch
 
-Proposed final system. The control-room player operates the hatch keypad and release controls. The equipment-room player reads local status symbols and maintenance instructions to guide the release procedure. After the procedure, both players arm their side and the control-room player releases the hatch. Both receive the escape outcome.
+Either connected player can continue after rescue acknowledgment. Control operates the keypad, reset, and final release. Equipment sees a private ordered plate of Triangle, Wave, Anchor, and Ring symbols and a maintenance legend mapping them to 4, 8, 2, and 6. The initial release code is 4826. This fixed mapping is an assistant-selected first-version mechanic and remains open to later difficulty tuning.
 
-Define the symbol mapping, keypad procedure, and arming rules before implementation. Incorrect input must produce feedback and allow recovery. The server must prevent release before power, drainage, transmission, and both arming steps are complete.
+Control can enter the code through the keyboard or on-screen numeric keypad. A wrong four-digit code produces shared rejection feedback and permits another attempt. The correct code authorizes release. Each player must then arm their own side. Only Control can release the hatch, and only while both sides are armed and both players are connected. Reset keypad and arms clears authorization and both arms while retaining prior completed systems.
+
+A disconnect or seat reclaim withdraws that player's armed state. Code authorization survives a temporary disconnect or refresh, but the returning player must arm again. Hatch actions use the existing runtime validation, role checks, action IDs, and expected-version checks. Simultaneous actions with stale versions are rejected and can be retried against the current snapshot.
+
+Successful release moves both players to the shared You escaped outcome, listing all four completed systems. Either player can request or cancel a replay. Both connected players must request it before the room returns to the lobby. The room code, seats, and chosen roles are retained, while all puzzle progress, readiness, and replay votes reset. Players may switch roles in the lobby before starting again. Disconnecting or reclaiming a seat withdraws that player's replay vote.
+
+Each room snapshot includes a run identifier. Puzzle and transition requests from the browser carry it. Returning to the lobby through replay, a player leaving, or seat expiration rotates the identifier and rejects stale or untagged puzzle requests from the previous run. Legacy untagged actions remain supported during the initial run. Replay requests always require the matching run identifier.
 
 ## User stories and acceptance criteria
 
@@ -82,7 +88,7 @@ Define the symbol mapping, keypad procedure, and arming rules before implementat
 | AC-03 | As a player, I receive my role's information. | The server sends only the clues and controls available to the player's current role and phase. Another room cannot receive this room's state. |
 | AC-04 | As a team, we can solve the power puzzle. | The documented solution advances the phase. Incorrect input trips the panel. Reset restores its initial puzzle state without losing the room. |
 | AC-05 | As a team, we can solve the pressure puzzle. | Valve actions follow the documented effects. The control-room player operates valves and pump while the equipment-room player reads private gauges. Pump activation succeeds only when both chambers satisfy the safe ranges. |
-| AC-06 | As a team, we can escape. | After the distress signal, the documented hatch procedure and both arming steps enable release from the control room. Both players receive the completion state. Early release requests are rejected. |
+| AC-06 | As a team, we can escape. | After the distress signal, the documented hatch code, both arming steps, and both connected players enable release from the control room. Disconnect withdraws the affected arm. Both players see the escape outcome and can jointly request a replay. Both players receive the completion state. Early release requests are rejected. |
 | AC-07 | As a player, my browser stays synchronized. | Valid actions update both connected players' appropriate views without refreshing. Concurrent or repeated actions cannot bypass phase requirements or apply one accepted action twice. |
 | AC-08 | As a disconnected player, I can return. | Refresh or a temporary disconnect allows the same browser to reclaim its seat using a private session credential. A fresh state snapshot restores the correct view. The partner sees connection status. |
 | AC-09 | As a keyboard or screen-reader user, I can play. | All controls have accessible names, visible focus, and keyboard operation. Status changes are announced appropriately. Clues convey meaning through text or symbols in addition to color. |

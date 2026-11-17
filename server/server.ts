@@ -14,10 +14,11 @@ import {
   antennaBearings,
 } from '../shared/protocol.ts'
 
-function parseRequest(value: unknown): Request {
+function parseActionRequest(value: unknown): Request {
   if (!value || typeof value !== 'object') throw new Error('Invalid request.')
   const data = value as Record<string, unknown>
   switch (data.type) {
+    case 'hatch':
     case 'transmitter':
     case 'pressure':
     case 'power': {
@@ -30,6 +31,31 @@ function parseRequest(value: unknown): Request {
         break
       if (!data.action || typeof data.action !== 'object') break
       const action = data.action as Record<string, unknown>
+      if (data.type === 'hatch') {
+        const metadata = {
+          actionId: data.actionId,
+          expectedVersion: data.expectedVersion as number,
+        }
+        if (action.type === 'release' || action.type === 'reset')
+          return { type: 'hatch', action: { type: action.type }, ...metadata }
+        if (action.type === 'arm' && typeof action.armed === 'boolean')
+          return {
+            type: 'hatch',
+            action: { type: 'arm', armed: action.armed },
+            ...metadata,
+          }
+        if (
+          action.type === 'submit' &&
+          typeof action.code === 'string' &&
+          /^[0-9]{4}$/.test(action.code)
+        )
+          return {
+            type: 'hatch',
+            action: { type: 'submit', code: action.code },
+            ...metadata,
+          }
+        break
+      }
       if (data.type === 'transmitter') {
         const metadata = {
           actionId: data.actionId,
@@ -115,9 +141,14 @@ function parseRequest(value: unknown): Request {
       if (
         data.target === undefined ||
         data.target === 'pressure' ||
-        data.target === 'transmitter'
+        data.target === 'transmitter' ||
+        data.target === 'hatch'
       )
         return { type: 'continue', target: data.target }
+      break
+    case 'replay':
+      if (typeof data.ready === 'boolean' && typeof data.runId === 'string')
+        return { type: 'replay', ready: data.ready, runId: data.runId }
       break
     case 'create':
     case 'start':
@@ -147,6 +178,24 @@ function parseRequest(value: unknown): Request {
       break
   }
   throw new Error('Invalid request. Check the room code or action.')
+}
+
+function parseRequest(value: unknown): Request {
+  const request = parseActionRequest(value)
+  if (
+    'actionId' in request ||
+    request.type === 'continue' ||
+    request.type === 'replay'
+  ) {
+    const runId = (value as Record<string, unknown>).runId
+    if (
+      runId !== undefined &&
+      (typeof runId !== 'string' || !/^[a-f0-9-]{36}$/.test(runId))
+    )
+      throw new Error('Invalid run identifier.')
+    return { ...request, runId } as Request
+  }
+  return request
 }
 
 export function createLobbyServer() {
@@ -241,7 +290,25 @@ export function createLobbyServer() {
           case 'continue':
             reply = {
               ok: true,
-              room: lobby.continue(socket.id, request.target),
+              room: lobby.continue(socket.id, request.target, request.runId),
+            }
+            break
+          case 'replay':
+            reply = {
+              ok: true,
+              room: lobby.replay(socket.id, request.ready, request.runId),
+            }
+            break
+          case 'hatch':
+            reply = {
+              ok: true,
+              room: lobby.hatch(
+                socket.id,
+                request.action,
+                request.actionId,
+                request.expectedVersion,
+                request.runId,
+              ),
             }
             break
           case 'transmitter':
@@ -252,6 +319,7 @@ export function createLobbyServer() {
                 request.action,
                 request.actionId,
                 request.expectedVersion,
+                request.runId,
               ),
             }
             break
@@ -263,6 +331,7 @@ export function createLobbyServer() {
                 request.action,
                 request.actionId,
                 request.expectedVersion,
+                request.runId,
               ),
             }
             break
@@ -274,6 +343,7 @@ export function createLobbyServer() {
                 request.action,
                 request.actionId,
                 request.expectedVersion,
+                request.runId,
               ),
             }
             break

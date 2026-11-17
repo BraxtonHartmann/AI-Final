@@ -136,7 +136,37 @@ For future entries, include date, exact prompt or transcript reference, agent/to
 - AI-run verification — Nineteen rule/transport tests and five Chromium browser tests passed. Coverage includes exact rescue tuning, unanswered attempts, reset, role authorization, private broadcasts and acknowledgments, malformed settings and codes, duplicate IDs, stale versions, targeted stage gates, partner disconnection, saved settings recovery after refresh, keyboard form submission, synchronized acknowledgment, and mobile overflow. Build, lint, and Git whitespace checks passed. Desktop and mobile screenshots of the radio and private chart were captured in temporary files outside the repository and visually inspected.
 - Human verification — Pending project-owner transmitter playtesting and code review. Firefox, Safari, screen-reader review, and the full accessibility/security audits remain pending.
 - Limitations — Three puzzles are implemented. The final hatch puzzle remains pending. Rooms remain in memory, and backend restarts end active sessions.
-- Commit — Transmitter and updated records saved locally, pending review and commit. Pressure push is complete.
+- Commit — 454ecba, feat: add cooperative transmitter puzzle [AI-assisted]. Committed and pushed on the next user request.
+
+## 010 — Publish transmitter and complete hatch, escape, and replay
+
+- Date — November 16, 2026.
+- User prompt — “That looks good, lets commit and push the transmitter puzzle and start building the final hatch puzzle.”
+- Agent/tools — Codex, terminal Git/npm/Node.js tools, TypeScript, Socket.IO, Playwright Chromium, cached Prettier, and local screenshot inspection. Exact model identifier was not recorded. No subagents were used.
+- Context — Read AGENTS.md, SPEC.md, README.md, the existing message types, role/session and puzzle infrastructure, current UI, and prior tests. Followed the four-puzzle operating split and deferred difficulty increases.
+- Publication — Committed transmitter and records as 454ecba with [AI-assisted] and pushed to origin/main before starting hatch. The previously observed duplicate-named source files were omitted as unrelated untracked files.
+- Initial hatch design — Control operates the keypad, reset, and release. Equipment receives a private Triangle/Wave/Anchor/Ring symbol plate and maintenance legend mapping to code 4826. This fixed mapping was selected by the assistant for the initial version. A wrong code produces shared rejection feedback and permits a retry. Correct input authorizes release, then each player arms their own side. Only Control can release, and both players must be connected and armed. Reset clears authorization and arms without losing earlier completed systems.
+- Recovery and replay — Code authorization survives refresh. Disconnecting or reclaiming a seat withdraws that player's arm and replay vote. A successful release produces a shared escape screen. Both players must request replay, with cancellation available, before returning to the same lobby. Seats and roles remain, while all systems and readiness reset. Players can switch roles before another start.
+- Test-driven evidence — Added hatch code, arm/release, reset, terminal-state, and privacy tests before creating server/hatch.ts. The first run failed with ERR_MODULE_NOT_FOUND. The rules passed after implementation.
+- Changes — Added final-hatch rules, private manual and symbol plate, keyboard/on-screen keypad, individual arm/disarm controls, Control-only release, shared escape summary, and consensual replay. Reused runtime validation, role checks, versions, action history, snapshots, and reconnect infrastructure. Added run identifiers to snapshots and browser puzzle/transition messages. Returning to the lobby through replay, leaving, or seat expiration rotates the identifier. Stale or untagged requests cannot affect subsequent runs. Legacy untagged actions remain supported for the initial run.
+- Concurrency review — Kept targeted transitions idempotent and gated. Duplicate accepted hatch actions return the current snapshot. A stale concurrent arm request can retry against the current version. Replay votes are stored by the authenticated role, and old replay requests cannot reset the next game.
+- Detected issue and remediation — Lint flagged a synchronous code-field state update inside an effect. Moved code clearing to the reset button handler and kept the effect for heading focus. Added a browser reset assertion checking that the input and arms clear, then reran the full hatch/replay flow. Build and lint passed without that warning.
+- AI-run verification — Twenty-six rule/transport tests passed. Real-socket coverage verifies private hatch messages, malformed code/arm/run fields, role authorization, shared escape, replay, and rejection of commands from a completed run. The six-test Chromium browser suite passed. After the final reset/run-boundary refinements, the focused browser test passed again through all four systems, wrong-code feedback, reset, re-arming after refresh, mobile layout, shared escape, replay cancellation/agreement, and a working first move in the next run. Build, lint, and Git whitespace checks passed.
+- Visual verification — The first temporary screenshot script attached connect listeners after its sockets had already connected, so it stalled. Stopped that script, changed it to connect only after registering listeners, and retried successfully. Hatch maintenance, keypad, and shared escape screens were captured at desktop and mobile sizes in temporary files outside the repository and visually inspected.
+- Human verification — Pending project-owner hatch playtesting and code review. Firefox, Safari, screen-reader review, and the full accessibility/security audits remain pending.
+- Remaining capstone work — Difficulty tuning, broader validation, CI/deployment, final documentation evidence, presentation, and reflection PDF remain separate milestones. All four initial puzzles are now playable. Rooms remain in memory and backend restarts end active sessions.
+- Commit — Included in the hatch publication requested in entry 011.
+
+## 011 — Publish hatch, escape, and replay
+
+- Date — November 17, 2026.
+- User prompt — “lets push that and then we will work to make some alterations to the puzzles themselves”
+- Agent/tools — Codex and terminal Git tools.
+- Context — Reviewed repository status, AGENTS.md, the prior hatch verification record, and Git whitespace checks.
+- Changes — Recorded publication of the completed initial four-puzzle flow. Puzzle alterations await the next discussion.
+- Verification — Source changes match the previously verified hatch milestone. Entry 010 records twenty-six rule/transport tests, six Chromium browser tests, the focused final replay check, build, and lint. Git whitespace checks passed at publication. No new gameplay edits were made in this task.
+- Publication scope — Hatch, escape/replay, tests, and project records. The three previously identified duplicate-named source files remain outside this commit.
+- Commit message — feat: complete hatch escape and replay [AI-assisted].
 
 ## Future entry template
 
